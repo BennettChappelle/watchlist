@@ -4,6 +4,7 @@
 let state = {
   watchlist: [],
   omdbKey: '',
+  syncToken: '',
   sortSeries: 'added',
   sortMovies: 'added',
   filterSeries: 'all',
@@ -31,7 +32,9 @@ function loadState() {
   try {
     const wl = localStorage.getItem('watchlist');
     if (wl) state.watchlist = JSON.parse(wl);
-    state.omdbKey = localStorage.getItem('omdbKey') || (window.OMDB_KEY || '');
+    state.omdbKey    = localStorage.getItem('omdbKey')    || (window.OMDB_KEY         || '');
+    state.syncToken  = localStorage.getItem('syncToken')  || (window.GITHUB_SYNC_TOKEN || '');
+    if (state.syncToken) window.GITHUB_SYNC_TOKEN = state.syncToken;
     state.sortSeries = localStorage.getItem('sortSeries') || 'added';
     state.sortMovies = localStorage.getItem('sortMovies') || 'added';
     const s = localStorage.getItem('settings');
@@ -42,7 +45,8 @@ function loadState() {
 function saveState() {
   try {
     localStorage.setItem('watchlist', JSON.stringify(state.watchlist));
-    localStorage.setItem('omdbKey', state.omdbKey);
+    localStorage.setItem('omdbKey',   state.omdbKey);
+    localStorage.setItem('syncToken', state.syncToken);
     localStorage.setItem('sortSeries', state.sortSeries);
     localStorage.setItem('sortMovies', state.sortMovies);
     localStorage.setItem('settings', JSON.stringify(state.settings));
@@ -398,6 +402,28 @@ function renderSettings() {
             <button class="btn-primary" style="font-size:13px" data-action="save-key">Save</button>
           </div>
           <div class="settings-hint">Free keys at omdbapi.com · 1000 req/day</div>
+        </div>
+      </div>
+
+      <div class="settings-section-label" style="margin-top:28px">Sync</div>
+      <div class="settings-group">
+        <div class="settings-row">
+          <div class="settings-row-left">
+            <span class="settings-row-label">${state.syncToken ? 'Token saved' : 'No token set'}</span>
+            <span class="settings-row-sub">GitHub token for cross-device sync</span>
+          </div>
+          <div class="settings-row-right">
+            ${state.syncToken
+              ? `<button class="key-change" data-action="edit-sync-token">Change</button>`
+              : `<button class="btn-primary" style="font-size:13px;padding:6px 14px" data-action="edit-sync-token">Add Token</button>`}
+          </div>
+        </div>
+        <div id="sync-token-edit-area" class="hidden" style="padding:0 16px 14px">
+          <div class="key-edit-wrap">
+            <input type="password" id="sync-token-input" class="key-edit-input" placeholder="ghp_..." value="${esc(state.syncToken)}">
+            <button class="btn-primary" style="font-size:13px" data-action="save-sync-token">Save</button>
+          </div>
+          <div class="settings-hint">Needs <code>gist</code> scope · <a href="https://github.com/settings/tokens/new?scopes=gist" target="_blank" rel="noopener">Generate token</a></div>
         </div>
       </div>
 
@@ -776,6 +802,22 @@ function handleAction(action, el) {
     case 'save-key': {
       const inp = document.getElementById('key-edit-input');
       if (inp) { state.omdbKey = inp.value.trim(); saveState(); render(); }
+      break;
+    }
+    case 'edit-sync-token': {
+      const area = document.getElementById('sync-token-edit-area');
+      if (area) { area.classList.toggle('hidden'); document.getElementById('sync-token-input')?.focus(); }
+      break;
+    }
+    case 'save-sync-token': {
+      const inp = document.getElementById('sync-token-input');
+      if (inp) {
+        state.syncToken = inp.value.trim();
+        window.GITHUB_SYNC_TOKEN = state.syncToken;
+        saveState();
+        render();
+        if (state.syncToken) initSync();
+      }
       break;
     }
     case 'save-first-run-key': {
