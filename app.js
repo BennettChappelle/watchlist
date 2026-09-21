@@ -320,7 +320,8 @@ async function handleSearchInput(value) {
       showSearchResults(renderSearchResultsList(data.Search || []));
     } catch (e) {
       console.error('search', e);
-      showSearchResults(`<div class="search-empty">Search error: ${esc(e.message)}</div>`);
+      const tooMany = /too many results/i.test(e.message);
+      showSearchResults(`<div class="search-empty">${tooMany ? 'Too many results — try a more specific title.' : `Search error: ${esc(e.message)}`}</div>`);
     }
   } else {
     const local = fuse?.search(q).slice(0,8).map(r=>r.item) || [];
@@ -425,6 +426,13 @@ function renderSettings() {
           </div>
           <div class="settings-hint">Needs <code>gist</code> scope · <a href="https://github.com/settings/tokens/new?scopes=gist" target="_blank" rel="noopener">Generate token</a></div>
         </div>
+        ${state.syncToken ? `<div class="settings-row">
+          <div class="settings-row-left">
+            <span class="settings-row-label">Sync now</span>
+            <span class="settings-row-sub">Pull latest from Gist, then push local changes</span>
+          </div>
+          <div class="settings-row-right"><button class="btn-ghost" style="font-size:13px;padding:6px 14px" data-action="sync-now">Sync</button></div>
+        </div>` : ''}
       </div>
 
       <div class="settings-section-label" style="margin-top:28px">Preferences</div>
@@ -818,6 +826,14 @@ function handleAction(action, el) {
         render();
         if (state.syncToken) initSync();
       }
+      break;
+    }
+    case 'sync-now': {
+      el.textContent = 'Syncing…';
+      el.disabled = true;
+      initSync().then(() => {
+        window.Sync?.push({ watchlist: state.watchlist, settings: state.settings, sortSeries: state.sortSeries, sortMovies: state.sortMovies });
+      }).finally(() => { el.textContent = 'Sync'; el.disabled = false; });
       break;
     }
     case 'save-first-run-key': {
