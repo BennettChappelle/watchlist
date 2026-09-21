@@ -96,6 +96,26 @@ a:hover { color: #3a9cff; }
 }
 .header-settings-btn:hover { color: var(--text); }
 
+/* ── Sync status dot ── */
+.sync-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--muted);
+  flex-shrink: 0;
+  transition: background var(--dur-base);
+}
+.sync-dot[data-status="syncing"] {
+  background: #f5a623;
+  animation: sync-pulse 1.1s ease-in-out infinite;
+}
+.sync-dot[data-status="synced"] { background: #30d158; }
+.sync-dot[data-status="error"]  { background: var(--danger); }
+@keyframes sync-pulse {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0.35; }
+}
+
 /* ── Page shell ── */
 .page-shell {
   padding-top: 80px;

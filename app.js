@@ -46,6 +46,9 @@ function saveState() {
     localStorage.setItem('sortSeries', state.sortSeries);
     localStorage.setItem('sortMovies', state.sortMovies);
     localStorage.setItem('settings', JSON.stringify(state.settings));
+    const ts = Date.now();
+    localStorage.setItem('updatedAt', String(ts));
+    window.Sync?.schedule({ watchlist: state.watchlist, settings: state.settings, sortSeries: state.sortSeries, sortMovies: state.sortMovies });
   } catch (e) { console.error('saveState', e); }
 }
 
@@ -445,6 +448,7 @@ function renderMain() {
   return `<header class="header">
     <span class="header-wordmark">Watchlist</span>
     <div class="header-actions">
+      ${window.GITHUB_SYNC_TOKEN ? `<span id="sync-dot" class="sync-dot" data-status="${window.Sync?.status||'idle'}" title="Sync status"></span>` : ''}
       <button class="header-settings-btn" data-action="go-settings" title="Settings">&#9881;</button>
     </div>
   </header>
@@ -919,12 +923,32 @@ function attachListeners() {
 }
 
 // ── Init ───────────────────────────────────────────────────────────────────
+async function initSync() {
+  if (!window.GITHUB_SYNC_TOKEN || !window.Sync) return;
+  window.Sync.init(status => {
+    const dot = document.getElementById('sync-dot');
+    if (dot) dot.dataset.status = status;
+  });
+  const remote = await window.Sync.pull();
+  if (!remote) return;
+  const localTs  = parseInt(localStorage.getItem('updatedAt') || '0', 10);
+  if (remote.updatedAt > localTs) {
+    if (Array.isArray(remote.watchlist)) state.watchlist = remote.watchlist;
+    if (remote.settings)   state.settings   = { ...state.settings, ...remote.settings };
+    if (remote.sortSeries) state.sortSeries = remote.sortSeries;
+    if (remote.sortMovies) state.sortMovies = remote.sortMovies;
+    localStorage.setItem('updatedAt', String(remote.updatedAt));
+    rebuildFuse();
+    render();
+  }
+}
+
 function init() {
   loadState();
   rebuildFuse();
   render();
   attachListeners();
-  // First-run modal removed — key hint shown inline; user can add key via Settings
+  initSync();
 }
 
 document.addEventListener('DOMContentLoaded', init);
