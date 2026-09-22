@@ -1325,6 +1325,10 @@ a.context-item:hover { background: var(--surface); color: var(--text); }
 /* ── Season pills hidden in horizontal (non-expanded) shelf ── */
 .shelf-row:not(.expanded) .season-pills { display: none; }
 
+/* ── Year chip ── */
+.year-chip { display:inline-flex; align-items:center; background:var(--accent,#6c63ff); color:#fff; font-size:11px; padding:2px 7px; border-radius:10px; margin-left:4px; font-weight:600; letter-spacing:0.02em; }
+.year-chip.hidden { display:none; }
+
 /* ── Hidden utility ── */
 .hidden { display: none !important; }
 

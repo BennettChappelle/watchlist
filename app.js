@@ -52,6 +52,7 @@ function saveState() {
     localStorage.setItem('settings', JSON.stringify(state.settings));
     const ts = Date.now();
     localStorage.setItem('updatedAt', String(ts));
+    // omdbKey/syncToken intentionally excluded — never synced to gist
     window.Sync?.schedule({ watchlist: state.watchlist, settings: state.settings, sortSeries: state.sortSeries, sortMovies: state.sortMovies });
   } catch (e) { console.error('saveState', e); }
 }
@@ -75,9 +76,19 @@ async function omdbFetch(params) {
   return data;
 }
 
-const omdbSearch = (q, page = 1) => omdbFetch({ s: q, page });
+const omdbSearch = (q, page = 1, year = null, type = null) => omdbFetch({ s: q, page, ...(year ? { y: year } : {}), ...(type ? { type } : {}) });
 const omdbGetById = id => omdbFetch({ i: id, plot: 'short' });
 const omdbGetByTitle = (title, type) => omdbFetch({ t: title, ...(type ? { type } : {}), plot: 'short' });
+
+// Extracts a 4-digit year from queries like "breaking bad 2008", "2008 breaking bad",
+// "the bear (2022)", "the bear(2022)"
+function parseQueryYear(q) {
+  const m = q.match(/(?:^|[\s(])(\d{4})(?:[)\s]|$)/);
+  if (!m) return { title: q, year: null };
+  const year = m[1];
+  const title = q.replace(/\s*\(?\d{4}\)?\s*/g, ' ').trim() || q;
+  return { title, year };
+}
 
 // ── Gradient fallback ──────────────────────────────────────────────────────
 function titleGradient(title) {
@@ -312,16 +323,38 @@ async function handleSearchInput(value) {
   const q = value.trim();
   const clearBtn = document.getElementById('search-clear');
   if (clearBtn) clearBtn.classList.toggle('hidden', !value);
+
+  // year extraction — must be in scope before the try block for tooMany retry
+  const { title: parsedTitle, year: parsedYear } = parseQueryYear(q);
+  const yearChip = document.getElementById('year-chip');
+  if (yearChip) {
+    if (parsedYear) { yearChip.textContent = parsedYear; yearChip.classList.remove('hidden'); }
+    else yearChip.classList.add('hidden');
+  }
+
   if (!q) { hideSearchResults(); return; }
   if (state.omdbKey) {
     showSearchResults(renderShimmerCards(4));
     try {
-      const data = await omdbSearch(q);
+      const data = await omdbSearch(parsedTitle, 1, parsedYear);
       showSearchResults(renderSearchResultsList(data.Search || []));
     } catch (e) {
       console.error('search', e);
       const tooMany = /too many results/i.test(e.message);
-      showSearchResults(`<div class="search-empty">${tooMany ? 'Too many results — try a more specific title.' : `Search error: ${esc(e.message)}`}</div>`);
+      if (tooMany) {
+        // auto-retry with type filters before giving up
+        try {
+          const movieData = await omdbSearch(parsedTitle, 1, parsedYear, 'movie');
+          if (movieData.Search?.length) { showSearchResults(renderSearchResultsList(movieData.Search)); return; }
+        } catch {}
+        try {
+          const seriesData = await omdbSearch(parsedTitle, 1, parsedYear, 'series');
+          if (seriesData.Search?.length) { showSearchResults(renderSearchResultsList(seriesData.Search)); return; }
+        } catch {}
+        showSearchResults('<div class="search-empty">Too many results — try a more specific title.</div>');
+        return;
+      }
+      showSearchResults(`<div class="search-empty">Search error: ${esc(e.message)}</div>`);
     }
   } else {
     const local = fuse?.search(q).slice(0,8).map(r=>r.item) || [];
@@ -354,6 +387,7 @@ async function addFromSearch(el) {
       const data = await omdbGetById(id);
       const idx = state.watchlist.findIndex(i => i.imdbID === id);
       if (idx !== -1) {
+        // type/seasons set by omdbToItem from full OMDB data
         const full = omdbToItem(data);
         full.addedAt  = state.watchlist[idx].addedAt;
         full.watched  = state.watchlist[idx].watched;
@@ -492,13 +526,14 @@ function renderMain() {
         <span class="hero-search-icon"><svg width="16" height="16" viewBox="0 0 16 16" fill="none"><circle cx="6.5" cy="6.5" r="5" stroke="currentColor" stroke-width="1.5"/><line x1="10.5" y1="10.5" x2="14" y2="14" stroke="currentColor" stroke-width="1.5" stroke-linecap="square"/></svg></span>
         <input type="search" id="search-input" class="hero-search-input" placeholder="Search to add movies &amp; series&#8230;" autocomplete="off" spellcheck="false">
         <button class="hero-search-clear hidden" id="search-clear" data-action="search-clear" title="Clear search" aria-label="Clear search"><svg width="14" height="14" viewBox="0 0 14 14" fill="none"><line x1="1" y1="1" x2="13" y2="13" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><line x1="13" y1="1" x2="1" y2="13" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg></button>
+        <span id="year-chip" class="year-chip hidden"></span>
         <div id="search-results" class="search-results hidden"></div>
       </div>
       ${keyHint}
     </div>
     <div id="shelves">
       ${renderShelf('series')}
-      ${renderShelf('movies')}
+      ${renderShelf('movie')}
     </div>
   </div>`;
 }
@@ -535,6 +570,11 @@ function render() {
   }
   const clearBtn = document.getElementById('search-clear');
   if (clearBtn && searchVal) clearBtn.classList.remove('hidden');
+  const yearChipEl = document.getElementById('year-chip');
+  if (yearChipEl && searchVal) {
+    const { year: restoredYear } = parseQueryYear(searchVal.trim());
+    if (restoredYear) { yearChipEl.textContent = restoredYear; yearChipEl.classList.remove('hidden'); }
+  }
 
   if (state.settings.reduceMotion) document.documentElement.classList.add('reduce-motion');
   else document.documentElement.classList.remove('reduce-motion');
@@ -831,9 +871,20 @@ function handleAction(action, el) {
     case 'sync-now': {
       el.textContent = 'Syncing…';
       el.disabled = true;
-      initSync().then(() => {
-        window.Sync?.push({ watchlist: state.watchlist, settings: state.settings, sortSeries: state.sortSeries, sortMovies: state.sortMovies });
-      }).finally(() => { el.textContent = 'Sync'; el.disabled = false; });
+      (async () => {
+        if (!window.Sync) return;
+        const remote = await window.Sync.pull();
+        if (!remote) return;
+        const localTs = parseInt(localStorage.getItem('updatedAt') || '0', 10);
+        if (remote.updatedAt >= localTs) {
+          if (remote.updatedAt > localTs) {
+            applyRemote(remote);
+            rebuildFuse(); render();
+          }
+        } else {
+          await window.Sync.push({ watchlist: state.watchlist, settings: state.settings, sortSeries: state.sortSeries, sortMovies: state.sortMovies });
+        }
+      })().catch(e => console.error('sync-now', e)).finally(() => { el.textContent = 'Sync'; el.disabled = false; });
       break;
     }
     case 'save-first-run-key': {
@@ -899,6 +950,8 @@ function handleAction(action, el) {
       const si = document.getElementById('search-input');
       if (si) { si.value = ''; si.focus(); }
       hideSearchResults();
+      document.getElementById('year-chip')?.classList.add('hidden');
+      document.getElementById('search-clear')?.classList.add('hidden');
       break;
     }
     case 'focus-search': {
@@ -981,24 +1034,37 @@ function attachListeners() {
 }
 
 // ── Init ───────────────────────────────────────────────────────────────────
+// Applies remote data to state + localStorage without scheduling a push back.
+function applyRemote(remote) {
+  if (Array.isArray(remote.watchlist)) {
+    state.watchlist = remote.watchlist;
+    localStorage.setItem('watchlist', JSON.stringify(remote.watchlist));
+  }
+  if (remote.settings) {
+    state.settings = { ...state.settings, ...remote.settings };
+    localStorage.setItem('settings', JSON.stringify(state.settings));
+  }
+  if (remote.sortSeries) { state.sortSeries = remote.sortSeries; localStorage.setItem('sortSeries', remote.sortSeries); }
+  if (remote.sortMovies) { state.sortMovies = remote.sortMovies; localStorage.setItem('sortMovies', remote.sortMovies); }
+  localStorage.setItem('updatedAt', String(remote.updatedAt));
+}
+
 async function initSync() {
-  if (!window.GITHUB_SYNC_TOKEN || !window.Sync) return;
+  if (!window.GITHUB_SYNC_TOKEN || !window.Sync) return false;
   window.Sync.init(status => {
     const dot = document.getElementById('sync-dot');
     if (dot) dot.dataset.status = status;
   });
   const remote = await window.Sync.pull();
-  if (!remote) return;
+  if (!remote) return false;
   const localTs  = parseInt(localStorage.getItem('updatedAt') || '0', 10);
   if (remote.updatedAt > localTs) {
-    if (Array.isArray(remote.watchlist)) state.watchlist = remote.watchlist;
-    if (remote.settings)   state.settings   = { ...state.settings, ...remote.settings };
-    if (remote.sortSeries) state.sortSeries = remote.sortSeries;
-    if (remote.sortMovies) state.sortMovies = remote.sortMovies;
-    localStorage.setItem('updatedAt', String(remote.updatedAt));
+    applyRemote(remote);
     rebuildFuse();
     render();
+    return true;
   }
+  return false;
 }
 
 function init() {

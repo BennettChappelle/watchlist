@@ -1,0 +1,26 @@
+{
+  "name": "watchlist",
+  "version": "1.0.0",
+  "description": "",
+  "main": "app.js",
+  "directories": {
+    "test": "tests"
+  },
+  "scripts": {
+    "test": "npx playwright test"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/BennettChappelle/watchlist.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/BennettChappelle/watchlist/issues"
+  },
+  "homepage": "https://github.com/BennettChappelle/watchlist#readme",
+  "devDependencies": {
+    "@playwright/test": "^1.63.0"
+  }
+}

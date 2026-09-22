@@ -33,12 +33,18 @@ async function resolveGistId() {
     } catch {}
     localStorage.removeItem('syncGistId');
   }
-  // 2. Search existing gists
-  const r = await fetch(`${GIST_API}?per_page=100`, { headers: headers() });
-  if (!r.ok) throw new Error(`GitHub ${r.status}`);
-  const list = await r.json();
-  const found = list.find(g => GIST_FILE in (g.files || {}));
-  if (found) { setGistId(found.id); return found.id; }
+  // 2. Search existing gists (paginated)
+  let page = 1;
+  while (page <= 20) {
+    const url = `${GIST_API}?per_page=100&page=${page}`;
+    const r = await fetch(url, { headers: headers() });
+    if (!r.ok) throw new Error(`GitHub ${r.status}`);
+    const list = await r.json();
+    const found = list.find(g => GIST_FILE in (g.files || {}));
+    if (found) { setGistId(found.id); return found.id; }
+    if (list.length === 0) break;
+    page++;
+  }
   // 3. Create
   const body = {
     description: 'Watchlist sync',
