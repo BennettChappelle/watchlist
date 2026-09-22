@@ -16,7 +16,7 @@ export function renderDetailPanel(item) {
     <button class="detail-close" data-action="close-detail" title="Close">&#10005;</button>
     <div class="detail-poster" style="${posterStyle(item)}" data-action="close-detail" title="Close" role="button" tabindex="0"></div>
     <div class="detail-body">
-      <div class="detail-title">${esc(item.title)}</div>
+      <div class="detail-title"><a href="https://www.google.com/search?q=${encodeURIComponent(`${item.title} ${item.year || ''} ${item.type === 'series' ? 'show' : 'movie'}`.trim())}" target="_blank" rel="noopener" style="color:inherit;text-decoration:none" title="Search Google">${esc(item.title)}</a></div>
       <div class="detail-meta">${meta}</div>
       ${item.plot ? `<div class="detail-plot">${esc(item.plot)}</div>` : ''}
       ${seasons}
