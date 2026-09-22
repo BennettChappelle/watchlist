@@ -496,3 +496,81 @@ test('year chip hides when search is cleared via clear button', async ({ page })
   await page.click('[data-action="search-clear"]');
   await expect(chip).toHaveClass(/hidden/);
 });
+
+// ── Test: year+title exact-lookup fallback (t= endpoint) ─────────────────
+
+const OMDB_OZ_EXACT = {
+  imdbID: 'tt0118421',
+  Title: 'Oz',
+  Year: '1997–2003',
+  Type: 'series',
+  Poster: 'N/A',
+  imdbRating: '8.7',
+  Plot: 'Life in the Oswald Maximum Security Prison.',
+  totalSeasons: '6',
+  Response: 'True',
+};
+
+test('too-many-results with year falls back to t= exact lookup', async ({ page }) => {
+  const calls = [];
+  await setupApp(page);
+  await mockOmdb(page, async r => {
+    const url = new URL(r.request().url());
+    calls.push({ s: url.searchParams.get('s'), t: url.searchParams.get('t'), type: url.searchParams.get('type'), y: url.searchParams.get('y') });
+    // All s= searches return too-many; t= with y=1997 returns the exact hit
+    if (url.searchParams.get('t') && url.searchParams.get('y') === '1997') {
+      await r.fulfill({ json: OMDB_OZ_EXACT });
+    } else {
+      await r.fulfill({ json: OMDB_TOO_MANY });
+    }
+  });
+  await page.goto(BASE);
+  await page.fill('#search-input', 'oz 1997');
+  await page.waitForTimeout(600);
+  await page.waitForSelector('.search-card', { timeout: 5000 });
+
+  const cardTitle = await page.locator('.search-card').first().getAttribute('data-title');
+  expect(cardTitle).toBe('Oz');
+
+  // Verify the t= call was made with y=1997
+  const exactCall = calls.find(c => c.t === 'oz' && c.y === '1997');
+  expect(exactCall).toBeTruthy();
+});
+
+test('not-found error with year falls back to t= exact lookup', async ({ page }) => {
+  await setupApp(page);
+  await mockOmdb(page, async r => {
+    const url = new URL(r.request().url());
+    if (url.searchParams.get('t') && url.searchParams.get('y') === '1997') {
+      await r.fulfill({ json: OMDB_OZ_EXACT });
+    } else {
+      await r.fulfill({ json: { Response: 'False', Error: 'Movie not found!' } });
+    }
+  });
+  await page.goto(BASE);
+  await page.fill('#search-input', 'oz 1997');
+  await page.waitForTimeout(600);
+  await page.waitForSelector('.search-card', { timeout: 5000 });
+
+  const cardTitle = await page.locator('.search-card').first().getAttribute('data-title');
+  expect(cardTitle).toBe('Oz');
+});
+
+test('too-many-results without year shows fallback message (no t= call)', async ({ page }) => {
+  const calls = [];
+  await setupApp(page);
+  await mockOmdb(page, async r => {
+    const url = new URL(r.request().url());
+    calls.push(url.searchParams.get('t'));
+    await r.fulfill({ json: OMDB_TOO_MANY });
+  });
+  await page.goto(BASE);
+  await page.fill('#search-input', 'oz');
+  await page.waitForTimeout(600);
+  await page.waitForSelector('.search-empty', { timeout: 5000 });
+
+  const text = await page.locator('.search-empty').textContent();
+  expect(text).toContain('Too many results');
+  // No t= exact-lookup calls made since no year was given
+  expect(calls.every(c => c === null)).toBe(true);
+});

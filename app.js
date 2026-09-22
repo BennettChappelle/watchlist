@@ -80,6 +80,17 @@ const omdbSearch = (q, page = 1, year = null, type = null) => omdbFetch({ s: q, 
 const omdbGetById = id => omdbFetch({ i: id, plot: 'short' });
 const omdbGetByTitle = (title, type) => omdbFetch({ t: title, ...(type ? { type } : {}), plot: 'short' });
 
+// Exact-title fallback when search fails: tries t= endpoint with year, no-type first then series/movie
+async function tryYearExactLookup(title, year) {
+  for (const type of [undefined, 'series', 'movie']) {
+    try {
+      const d = await omdbFetch({ t: title, y: year, plot: 'short', ...(type ? { type } : {}) });
+      if (d.imdbID) return d;
+    } catch {}
+  }
+  return null;
+}
+
 // Extracts a 4-digit year from queries like "breaking bad 2008", "2008 breaking bad",
 // "the bear (2022)", "the bear(2022)"
 function parseQueryYear(q) {
@@ -337,12 +348,18 @@ async function handleSearchInput(value) {
     showSearchResults(renderShimmerCards(4));
     try {
       const data = await omdbSearch(parsedTitle, 1, parsedYear);
-      showSearchResults(renderSearchResultsList(data.Search || []));
+      if (data.Search?.length) { showSearchResults(renderSearchResultsList(data.Search)); return; }
+      // Search returned 0 items — if year given, try exact-title lookup
+      if (parsedYear) {
+        const exact = await tryYearExactLookup(parsedTitle, parsedYear);
+        if (exact) { showSearchResults(renderSearchResultsList([exact])); return; }
+      }
+      showSearchResults(renderSearchResultsList([]));
     } catch (e) {
       console.error('search', e);
       const tooMany = /too many results/i.test(e.message);
       if (tooMany) {
-        // auto-retry with type filters before giving up
+        // auto-retry with type filters
         try {
           const movieData = await omdbSearch(parsedTitle, 1, parsedYear, 'movie');
           if (movieData.Search?.length) { showSearchResults(renderSearchResultsList(movieData.Search)); return; }
@@ -351,8 +368,20 @@ async function handleSearchInput(value) {
           const seriesData = await omdbSearch(parsedTitle, 1, parsedYear, 'series');
           if (seriesData.Search?.length) { showSearchResults(renderSearchResultsList(seriesData.Search)); return; }
         } catch {}
+        // year present → exact-title lookup as last resort
+        if (parsedYear) {
+          const exact = await tryYearExactLookup(parsedTitle, parsedYear);
+          if (exact) { showSearchResults(renderSearchResultsList([exact])); return; }
+        }
         showSearchResults('<div class="search-empty">Too many results — try a more specific title.</div>');
         return;
+      }
+      // "Movie not found!" or other error — if year given, try exact-title lookup
+      if (parsedYear) {
+        try {
+          const exact = await tryYearExactLookup(parsedTitle, parsedYear);
+          if (exact) { showSearchResults(renderSearchResultsList([exact])); return; }
+        } catch {}
       }
       showSearchResults(`<div class="search-empty">Search error: ${esc(e.message)}</div>`);
     }
