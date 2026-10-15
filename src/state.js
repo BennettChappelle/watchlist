@@ -10,6 +10,8 @@ export const state = {
   filterMovies: 'all',
   expandedSeries: false,
   expandedMovies: false,
+  watchedCollapsedSeries: true,
+  watchedCollapsedMovies: true,
   openDetailId: null,
   view: 'main',
   settings: {

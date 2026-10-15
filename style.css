@@ -1392,6 +1392,38 @@ a.context-item:hover { background: var(--surface); color: var(--text); }
 }
 .year-chip.hidden { display:none; }
 
+/* ── Watched section ── */
+.watched-section {
+  margin-top: 20px;
+}
+
+.watched-section-toggle {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: transparent;
+  border: none;
+  color: var(--muted);
+  font-family: 'DM Sans', sans-serif;
+  font-weight: 500;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  padding: 4px 0;
+  cursor: pointer;
+  margin-bottom: 10px;
+  transition: color var(--dur-fast);
+}
+.watched-section-toggle:hover { color: var(--text); }
+
+.watched-section-chevron {
+  transition: transform var(--dur-base) var(--ease-out);
+  flex-shrink: 0;
+}
+.watched-section-chevron.open {
+  transform: rotate(180deg);
+}
+
 /* ── Hidden utility ── */
 .hidden { display: none !important; }
 

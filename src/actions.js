@@ -99,6 +99,11 @@ export function handleAction(action, el) {
       else state.expandedMovies = !state.expandedMovies;
       render(); break;
 
+    case 'toggle-watched-section':
+      if (el.dataset.type === 'series') state.watchedCollapsedSeries = !state.watchedCollapsedSeries;
+      else state.watchedCollapsedMovies = !state.watchedCollapsedMovies;
+      render(); break;
+
     case 'filter':
       if (el.dataset.type === 'series') state.filterSeries = el.dataset.value;
       else state.filterMovies = el.dataset.value;

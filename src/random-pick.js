@@ -68,6 +68,15 @@ let pickerEl = null;
 
 export function openPicker() {
   if (pickerEl) return;
+
+  const seriesAll = state.watchlist.filter(i=>i.type==='series');
+  const movieAll  = state.watchlist.filter(i=>i.type==='movie');
+
+  // If only one type has items, skip the picker and go straight to the reel
+  if (!seriesAll.length && movieAll.length)  { pick('movie');  return; }
+  if (!movieAll.length  && seriesAll.length) { pick('series'); return; }
+  if (!seriesAll.length && !movieAll.length) return;
+
   pickerEl = document.createElement('div');
   pickerEl.id = 'rp-overlay';
   pickerEl.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.72);backdrop-filter:blur(20px) saturate(180%);-webkit-backdrop-filter:blur(20px) saturate(180%);z-index:200;display:flex;align-items:center;justify-content:center;padding:20px;animation:wl-fade 220ms cubic-bezier(0.16,1,0.3,1) both';
@@ -345,17 +354,16 @@ function frameLoop(now) {
       if (sl.img) {
         if (hasPoster) {
           if (sl.img.dataset.loaded === it.poster) {
-            // already cached in this slot — restore visibility
             sl.img.style.opacity = '1';
             sl.title.style.visibility = 'hidden';
           } else {
+            // Hide title immediately — gradient bg covers the slot while image loads
             sl.img.style.opacity = '0';
-            sl.title.style.visibility = 'visible';
+            sl.title.style.visibility = 'hidden';
             sl.img.src = it.poster;
             sl.img.onload = () => {
               if (sl.img.src.endsWith(it.poster) || sl.img.src === it.poster) {
                 sl.img.style.opacity = '1';
-                sl.title.style.visibility = 'hidden';
                 sl.img.dataset.loaded = it.poster;
               }
             };
@@ -394,7 +402,10 @@ function frameLoop(now) {
     sl.el.style.opacity    = L('op').toFixed(3);
     sl.el.style.zIndex     = String(100-Math.round(Math.abs(di)*10));
     sl.shade.style.opacity = L('shade').toFixed(3);
-    sl.title.style.opacity = (center ? 1 : clamp(1-Math.abs(di)*0.75,0,1)*(1-r)).toFixed(3);
+    // Only drive title opacity when title is visible (no poster loaded); otherwise leave visibility:hidden alone
+    if (sl.title.style.visibility !== 'hidden') {
+      sl.title.style.opacity = (center ? 1 : clamp(1-Math.abs(di)*0.75,0,1)*(1-r)).toFixed(3);
+    }
   });
 
   const blur = clamp((v-3)*0.75,0,11)*(1-r);

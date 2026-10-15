@@ -1,6 +1,6 @@
 'use strict';
 
-import { state, getSortedFiltered, shelfStats, getItem } from '../state.js';
+import { state, shelfStats, getItem } from '../state.js';
 import { esc, posterStyle } from '../utils.js';
 import { renderCard } from './card.js';
 
@@ -28,19 +28,36 @@ export function renderDetailPanel(item) {
   </div>`;
 }
 
-export function renderShelf(type) {
-  const items    = getSortedFiltered(type);
-  const allCount = state.watchlist.filter(i => i.type === type).length;
-  const expanded = type === 'series' ? state.expandedSeries : state.expandedMovies;
-  const sort     = type === 'series' ? state.sortSeries     : state.sortMovies;
-  const filter   = type === 'series' ? state.filterSeries   : state.filterMovies;
-  const label    = type === 'series' ? 'Series' : 'Movies';
-  const openItem = state.openDetailId ? getItem(state.openDetailId) : null;
-  const openHere = openItem?.type === type;
-  const stats    = shelfStats(type);
+function renderRow(items, expanded, type) {
+  if (!items.length) return '';
+  return `<div class="shelf-row-wrap">
+    <div class="shelf-row${expanded ? ' expanded' : ''}">
+      ${items.map(i => renderCard(i)).join('')}
+    </div>
+  </div>`;
+}
 
-  const filterBtn = (val, text) =>
-    `<button class="shelf-filter-btn${filter === val ? ' active' : ''}" data-action="filter" data-type="${type}" data-value="${val}">${text}</button>`;
+export function renderShelf(type) {
+  const all      = state.watchlist.filter(i => i.type === type);
+  const unwatched = all.filter(i => !i.watched);
+  const watched   = all.filter(i =>  i.watched);
+  const allCount  = all.length;
+  const expanded  = type === 'series' ? state.expandedSeries : state.expandedMovies;
+  const sort      = type === 'series' ? state.sortSeries     : state.sortMovies;
+  const label     = type === 'series' ? 'Series' : 'Movies';
+  const openItem  = state.openDetailId ? getItem(state.openDetailId) : null;
+  const openHere  = openItem?.type === type;
+  const stats     = shelfStats(type);
+  const watchedCollapsed = type === 'series' ? state.watchedCollapsedSeries : state.watchedCollapsedMovies;
+
+  const sortFn = {
+    added:  (a, b) => (b.addedAt || 0) - (a.addedAt || 0),
+    title:  (a, b) => a.title.localeCompare(b.title),
+    rating: (a, b) => parseFloat(b.imdbRating || 0) - parseFloat(a.imdbRating || 0),
+  }[sort] || ((a, b) => (b.addedAt || 0) - (a.addedAt || 0));
+
+  const sortedUnwatched = [...unwatched].sort(sortFn);
+  const sortedWatched   = [...watched].sort(sortFn);
 
   let body;
   if (allCount === 0) {
@@ -48,28 +65,29 @@ export function renderShelf(type) {
       <span class="shelf-empty-plus">+</span>
       <span class="shelf-empty-label">Add your first ${label.toLowerCase()}</span>
     </div>`;
-  } else if (items.length === 0) {
-    body = `<div class="shelf-empty">Nothing matches this filter.</div>`;
+  } else if (openHere) {
+    body = renderDetailPanel(openItem);
   } else {
-    body = openHere
-      ? renderDetailPanel(openItem)
-      : `<div class="shelf-row-wrap">
-          <div class="shelf-row${expanded ? ' expanded' : ''}">
-            ${items.map(i => renderCard(i)).join('')}
-          </div>
-        </div>`;
+    const unwatchedRow = sortedUnwatched.length
+      ? renderRow(sortedUnwatched, expanded, type)
+      : (allCount > 0 ? `<div class="shelf-empty">All ${label.toLowerCase()} watched.</div>` : '');
+
+    const watchedSection = watched.length
+      ? `<div class="watched-section">
+          <button class="watched-section-toggle" data-action="toggle-watched-section" data-type="${type}" aria-expanded="${!watchedCollapsed}">
+            <svg class="watched-section-chevron${watchedCollapsed ? '' : ' open'}" width="10" height="10" viewBox="0 0 10 10" fill="none" aria-hidden="true"><path d="M2 3.5l3 3 3-3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            Watched <span class="shelf-count">${watched.length}</span>
+          </button>
+          ${watchedCollapsed ? '' : renderRow(sortedWatched, expanded, type)}
+        </div>`
+      : '';
+
+    body = unwatchedRow + watchedSection;
   }
 
   return `<section class="shelf" data-type="${type}">
     <div class="shelf-header">
       <span class="shelf-label">${label} <span class="shelf-count">${allCount}</span></span>
-      <div class="shelf-filters">
-        ${filterBtn('all', 'All')}
-        <span class="shelf-filter-sep">·</span>
-        ${filterBtn('unwatched', 'Unwatched')}
-        <span class="shelf-filter-sep">·</span>
-        ${filterBtn('watched', 'Watched')}
-      </div>
       <span class="shelf-spacer"></span>
       <select class="shelf-sort" data-action="sort" data-type="${type}">
         <option value="added"${sort === 'added' ? ' selected' : ''}>Added</option>
