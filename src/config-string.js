@@ -25,7 +25,9 @@ export function applyWindowConfig() {
 }
 
 // Called from Settings import action — immediately applies and persists.
-export function importConfigString(str, state, saveStateFn) {
+// Does NOT call saveState/schedule a sync push — credentials and settings are
+// persisted directly so the caller can run initSync() to pull before any push.
+export function importConfigString(str, state) {
   try {
     const c = JSON.parse(atob(str.trim()));
     if (c.omdb) {
@@ -39,8 +41,8 @@ export function importConfigString(str, state, saveStateFn) {
     }
     if (c.settings) {
       state.settings = { ...state.settings, ...c.settings };
+      localStorage.setItem('settings', JSON.stringify(state.settings));
     }
-    saveStateFn();
     return true;
   } catch (e) {
     console.error('importConfigString', e);

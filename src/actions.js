@@ -133,9 +133,16 @@ export function handleAction(action, el) {
     case 'import-config-string': {
       const inp = document.getElementById('config-string-input');
       if (!inp?.value.trim()) break;
-      const ok = importConfigString(inp.value.trim(), state, saveState);
-      if (ok) render();
-      else { inp.style.outline = '1px solid var(--danger)'; setTimeout(() => { inp.style.outline = ''; }, 1500); }
+      const ok = importConfigString(inp.value.trim(), state);
+      if (ok) {
+        render();
+        // Pull from sync before pushing so we don't overwrite the remote with
+        // an empty local library (the scenario that caused data loss on fresh load)
+        initSync().catch(e => console.error('initSync after config import', e));
+      } else {
+        inp.style.outline = '1px solid var(--danger)';
+        setTimeout(() => { inp.style.outline = ''; }, 1500);
+      }
       break;
     }
     case 'do-import':        doImport(); break;
