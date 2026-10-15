@@ -11,7 +11,7 @@ export function renderCard(item) {
       ).join('')}</div>`
     : '';
   const meta = [item.year, item.imdbRating ? `&#9733; ${esc(item.imdbRating)}` : null].filter(Boolean).join(' · ');
-  return `<div class="card${item.watched ? ' watched' : ''}${isOpen ? ' active' : ''}${item.isStub ? ' stub' : ''}" data-id="${esc(item.imdbID)}" data-action="open-detail">
+  return `<div class="card${item.watched ? ' watched' : ''}${isOpen ? ' active' : ''}${item.isStub ? ' stub' : ''}" data-id="${esc(item.imdbID)}" data-action="open-detail" role="button" tabindex="0" aria-label="${esc(item.title)}${item.watched ? ', watched' : ''}" aria-pressed="${isOpen}">
     <div class="card-poster" style="${posterStyle(item)}">
       ${item.watched ? '<div class="watched-badge">&#10003;</div>' : ''}
       ${item.isStub && !item.poster ? `<span class="stub-title">${esc(item.title)}</span>` : ''}

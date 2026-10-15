@@ -7,6 +7,7 @@ import { hideContextMenu, showContextMenu, showActionSheet } from './ui/context-
 import { hideSearchResults, handleSearchInput } from './render/search.js';
 import { addFromSearch }    from './import-export.js';
 import { render }           from './render/main.js';
+import { handleRandomKey, openPicker } from './random-pick.js';
 
 let searchDebounce  = null;
 let longPressTimer  = null;
@@ -22,20 +23,32 @@ export function attachListeners() {
         return;
       }
     }
+    if (e.target.classList.contains('modal-overlay')) { closeModal(); return; }
     if (!e.target.closest('.hero-search')) hideSearchResults();
     if (!e.target.closest('.context-menu')) hideContextMenu();
   });
 
   document.addEventListener('change', e => {
-    const el = e.target.closest('[data-action="sort"]');
+    const el = e.target.closest('[data-action]');
     if (!el) return;
-    const type = el.dataset.type;
-    if (type === 'series') state.sortSeries = el.value;
-    else state.sortMovies = el.value;
-    saveState(); render();
+    const action = el.dataset.action;
+    if (action === 'sort') {
+      const type = el.dataset.type;
+      if (type === 'series') state.sortSeries = el.value;
+      else state.sortMovies = el.value;
+      saveState(); render();
+    } else if (action === 'set-setting-select' || action === 'set-setting-range') {
+      handleAction(action, el);
+    }
   });
 
   document.addEventListener('input', e => {
+    if (e.target.closest('[data-action="set-setting-range"]')) {
+      const el = e.target.closest('[data-action="set-setting-range"]');
+      const sub = el?.closest('.settings-row')?.querySelector('.settings-row-sub');
+      if (sub) sub.textContent = `${parseFloat(el.value)}s`;
+      return;
+    }
     if (e.target.id !== 'search-input') return;
     const q = e.target.value;
     clearTimeout(searchDebounce);
@@ -91,5 +104,16 @@ export function attachListeners() {
       e.preventDefault();
       addFromSearch(cards[idx]);
     }
+  });
+
+  document.addEventListener('keydown', handleRandomKey);
+
+  document.addEventListener('keydown', e => {
+    if (e.key !== 'Enter' && e.key !== ' ') return;
+    const el = document.activeElement;
+    const card = el?.closest('.card[data-action="open-detail"]');
+    if (card) { e.preventDefault(); handleAction('open-detail', card); return; }
+    const actionEl = el?.closest('[data-action][role="button"],[data-action][role="switch"],[data-action][role="link"]');
+    if (actionEl) { e.preventDefault(); handleAction(actionEl.dataset.action, actionEl); }
   });
 }

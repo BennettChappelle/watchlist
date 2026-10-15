@@ -81,6 +81,7 @@ a:hover { color: #3a9cff; }
   font-size: 13px;
   padding: 6px 8px;
   transition: color var(--dur-fast);
+  cursor: pointer;
 }
 .header-btn:hover { color: var(--text); }
 .header-btn svg { flex-shrink: 0; }
@@ -154,6 +155,7 @@ a:hover { color: #3a9cff; }
 }
 .hero-search-input::placeholder { color: var(--muted); }
 .hero-search-input:focus { border-color: var(--accent); }
+.hero-search-input::-webkit-search-cancel-button { display: none; }
 
 .hero-search-icon {
   position: absolute;
@@ -228,15 +230,15 @@ a:hover { color: #3a9cff; }
 .shelf-filter-btn {
   background: transparent;
   border: none;
+  border-bottom: 2px solid transparent;
   color: var(--muted);
   font-family: 'DM Sans', sans-serif;
   font-size: 11px;
-  padding: 0 0 1px;
+  padding: 0;
   cursor: pointer;
-  transition: color var(--dur-fast);
+  transition: color var(--dur-fast), border-color var(--dur-fast);
 }
 .shelf-filter-btn.active {
-  color: var(--text);
   border-bottom: 2px solid var(--accent);
   color: var(--accent);
 }
@@ -296,7 +298,7 @@ a:hover { color: #3a9cff; }
   overflow-x: visible;
 }
 
-.shelf-row.expanded + .shelf-row-wrap::after { display: none; }
+.shelf-row-wrap:has(.shelf-row.expanded)::after { display: none; }
 
 .shelf-empty {
   color: var(--muted);
@@ -335,6 +337,9 @@ a:hover { color: #3a9cff; }
 .card:hover {
   transform: translateY(-2px);
   box-shadow: var(--shadow-lift);
+}
+.card.active {
+  box-shadow: 0 0 0 2px var(--accent), var(--shadow-lift);
 }
 
 .card-poster img {
@@ -468,19 +473,18 @@ a:hover { color: #3a9cff; }
   background: var(--surface);
   border: 1px solid rgba(255,255,255,0.06);
   border-radius: 8px;
-  padding: 0 20px;
+  padding: 20px;
   display: flex;
   gap: 20px;
   overflow: hidden;
   max-height: 0;
   opacity: 0;
-  transition: max-height var(--dur-expand) var(--ease-out), opacity var(--dur-base) var(--ease-out), padding var(--dur-expand) var(--ease-out);
+  transition: max-height var(--dur-expand) var(--ease-out), opacity var(--dur-base) var(--ease-out);
   position: relative;
 }
 .detail-panel.open {
   max-height: 340px;
   opacity: 1;
-  padding: 20px;
 }
 
 .detail-close {
@@ -544,7 +548,6 @@ a:hover { color: #3a9cff; }
 }
 
 .watched-toggle {
-  margin-top: 10px;
   background: var(--surface-2);
   border: none;
   border-radius: 6px;
@@ -567,11 +570,6 @@ a:hover { color: #3a9cff; }
   color: rgba(245,245,247,0.75);
   line-height: 1.6;
   margin-top: 8px;
-}
-
-/* ── Search results ── */
-.search-results {
-  padding-top: 8px;
 }
 
 .search-section-label {
@@ -1008,8 +1006,6 @@ a:hover { color: #3a9cff; }
   padding-top: 80px;
   padding-left: 48px;
   padding-right: 48px;
-  max-width: 640px;
-  margin: 0 auto;
   padding-bottom: 48px;
 }
 
@@ -1023,6 +1019,7 @@ a:hover { color: #3a9cff; }
   margin-bottom: 12px;
   margin-top: 28px;
 }
+.settings-section-label:first-child { margin-top: 0; }
 
 .settings-group {
   background: var(--surface);
@@ -1078,6 +1075,53 @@ a:hover { color: #3a9cff; }
   transition: left var(--dur-fast) var(--ease-out);
 }
 .toggle.on .toggle-thumb { left: 18px; }
+
+/* Settings select / range */
+.settings-select {
+  background: var(--surface-2);
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 6px;
+  color: var(--text);
+  font-family: 'DM Sans', sans-serif;
+  font-size: 13px;
+  padding: 5px 28px 5px 10px;
+  cursor: pointer;
+  outline: none;
+  appearance: none;
+  -webkit-appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%236e6e73' stroke-width='1.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 9px center;
+  transition: border-color var(--dur-fast);
+}
+.settings-select:focus { border-color: var(--accent); }
+.settings-select option { background: var(--surface-2); color: var(--text); }
+
+.settings-range {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 120px;
+  height: 4px;
+  background: var(--surface-2);
+  border-radius: 2px;
+  outline: none;
+  cursor: pointer;
+  accent-color: var(--accent);
+}
+.settings-range::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 16px; height: 16px;
+  border-radius: 50%;
+  background: var(--accent);
+  cursor: pointer;
+}
+.settings-range::-moz-range-thumb {
+  width: 16px; height: 16px;
+  border-radius: 50%;
+  background: var(--accent);
+  border: none;
+  cursor: pointer;
+}
 
 /* Segmented control */
 .seg-control {
@@ -1198,7 +1242,7 @@ a:hover { color: #3a9cff; }
 .watched-badge {
   background: rgba(10,132,255,0.85);
   color: #fff;
-  font-size: 12px;
+  font-size: 14px;
 }
 
 /* ── Watched card indicator — bottom stripe, not full dim ── */
@@ -1212,6 +1256,10 @@ a:hover { color: #3a9cff; }
 }
 
 /* ── Watched animation ── */
+@keyframes wl-fade  { from { opacity:0 }                                    to { opacity:1 } }
+@keyframes wl-modal { from { opacity:0; transform:scale(0.95) }              to { opacity:1; transform:scale(1) } }
+@keyframes wl-up    { from { opacity:0; transform:translateY(14px) }         to { opacity:1; transform:translateY(0) } }
+
 @keyframes watched-flash {
   0%   { opacity: 0; transform: scale(0.6); }
   35%  { opacity: 1; transform: scale(1.15); }
@@ -1326,7 +1374,22 @@ a.context-item:hover { background: var(--surface); color: var(--text); }
 .shelf-row:not(.expanded) .season-pills { display: none; }
 
 /* ── Year chip ── */
-.year-chip { display:inline-flex; align-items:center; background:var(--accent,#6c63ff); color:#fff; font-size:11px; padding:2px 7px; border-radius:10px; margin-left:4px; font-weight:600; letter-spacing:0.02em; }
+.year-chip {
+  position: absolute;
+  right: 44px;
+  top: 50%;
+  transform: translateY(-50%);
+  display: inline-flex;
+  align-items: center;
+  background: var(--accent);
+  color: #fff;
+  font-size: 11px;
+  padding: 2px 7px;
+  border-radius: 10px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  pointer-events: none;
+}
 .year-chip.hidden { display:none; }
 
 /* ── Hidden utility ── */
@@ -1356,4 +1419,8 @@ a.context-item:hover { background: var(--surface); color: var(--text); }
 
 @media (max-width: 375px) {
   .card { flex: 0 0 100px; width: 100px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: .001s !important; transition-duration: .001s !important; }
 }

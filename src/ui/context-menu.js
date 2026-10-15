@@ -27,8 +27,9 @@ export function showContextMenu(id, x, y) {
     <button class="context-item danger" data-action="ctx-remove" data-id="${esc(id)}">Remove</button>`;
   document.body.appendChild(m);
   const r = m.getBoundingClientRect();
-  if (r.right  > window.innerWidth)  m.style.left = (window.innerWidth  - r.width  - 8) + 'px';
-  if (r.bottom > window.innerHeight) m.style.top  = (y - r.height) + 'px';
+  if (r.right  > window.innerWidth)  m.style.left = Math.max(8, window.innerWidth  - r.width  - 8) + 'px';
+  if (r.left   < 8)                  m.style.left = '8px';
+  if (r.bottom > window.innerHeight) m.style.top  = Math.max(8, y - r.height) + 'px';
 }
 
 export function showActionSheet(id) {

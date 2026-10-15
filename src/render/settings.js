@@ -4,9 +4,9 @@ import { state } from '../state.js';
 import { esc } from '../utils.js';
 
 export function renderSettings() {
-  const { defaultGrid, hideWatched, showSeasonPills, reduceMotion } = state.settings;
+  const { defaultGrid, hideWatched, showSeasonPills, reduceMotion, sound, carouselStyle, spinSeconds } = state.settings;
   const toggle = (key, on) =>
-    `<span class="toggle${on ? ' on' : ''}" data-action="toggle-setting" data-key="${key}"><span class="toggle-track"></span><span class="toggle-thumb"></span></span>`;
+    `<span class="toggle${on ? ' on' : ''}" data-action="toggle-setting" data-key="${key}" role="switch" aria-checked="${on ? 'true' : 'false'}" tabindex="0"><span class="toggle-track"></span><span class="toggle-thumb"></span></span>`;
 
   return `<div class="settings-view">
     <header class="header">
@@ -15,7 +15,7 @@ export function renderSettings() {
         <button class="header-settings-btn" data-action="back-to-main" title="Back">&#8592; Back</button>
       </div>
     </header>
-    <div style="padding-top:80px;max-width:640px;margin:0 auto;padding-bottom:48px">
+    <div style="max-width:640px;margin:0 auto">
       <div class="settings-section-label">OMDB API Key</div>
       <div class="settings-group">
         <div class="settings-row">
@@ -38,7 +38,7 @@ export function renderSettings() {
         </div>
       </div>
 
-      <div class="settings-section-label" style="margin-top:28px">Sync</div>
+      <div class="settings-section-label">Sync</div>
       <div class="settings-group">
         <div class="settings-row">
           <div class="settings-row-left">
@@ -67,7 +67,7 @@ export function renderSettings() {
         </div>` : ''}
       </div>
 
-      <div class="settings-section-label" style="margin-top:28px">Preferences</div>
+      <div class="settings-section-label">Preferences</div>
       <div class="settings-group">
         <div class="settings-row">
           <div class="settings-row-left"><span class="settings-row-label">Default grid view</span></div>
@@ -87,7 +87,57 @@ export function renderSettings() {
         </div>
       </div>
 
-      <div class="settings-section-label" style="margin-top:28px">Data</div>
+      <div class="settings-section-label">Random Pick</div>
+      <div class="settings-group">
+        <div class="settings-row">
+          <div class="settings-row-left"><span class="settings-row-label">Sound effects</span></div>
+          <div class="settings-row-right">${toggle('sound', sound ?? true)}</div>
+        </div>
+        <div class="settings-row">
+          <div class="settings-row-left">
+            <span class="settings-row-label">Carousel style</span>
+          </div>
+          <div class="settings-row-right">
+            <select class="settings-select" data-action="set-setting-select" data-key="carouselStyle">
+              <option value="coverflow"${(carouselStyle ?? 'coverflow') === 'coverflow' ? ' selected' : ''}>Coverflow</option>
+              <option value="cylinder"${carouselStyle === 'cylinder' ? ' selected' : ''}>Cylinder</option>
+              <option value="flat"${carouselStyle === 'flat' ? ' selected' : ''}>Flat</option>
+            </select>
+          </div>
+        </div>
+        <div class="settings-row">
+          <div class="settings-row-left">
+            <span class="settings-row-label">Spin duration</span>
+            <span class="settings-row-sub">${spinSeconds ?? 5}s</span>
+          </div>
+          <div class="settings-row-right">
+            <input type="range" min="2.5" max="9" step="0.5" value="${spinSeconds ?? 5}" class="settings-range" data-action="set-setting-range" data-key="spinSeconds">
+          </div>
+        </div>
+      </div>
+
+      <div class="settings-section-label">Config string</div>
+      <div class="settings-group">
+        <div class="settings-row">
+          <div class="settings-row-left">
+            <span class="settings-row-label">Copy config string</span>
+            <span class="settings-row-sub">Encodes your keys &amp; preferences — paste into config.js on any device</span>
+          </div>
+          <div class="settings-row-right">
+            <button id="copy-config-btn" class="btn-ghost" style="font-size:13px;padding:6px 14px" data-action="copy-config-string">Copy</button>
+          </div>
+        </div>
+        <div class="settings-row" style="flex-direction:column;align-items:stretch;gap:10px;padding:12px 16px">
+          <span class="settings-row-label">Import config string</span>
+          <div style="display:flex;gap:8px">
+            <input type="text" id="config-string-input" class="key-edit-input" placeholder="Paste config string…" style="flex:1;font-family:monospace;font-size:12px">
+            <button class="btn-primary" style="font-size:13px;white-space:nowrap" data-action="import-config-string">Apply</button>
+          </div>
+          <span class="settings-hint">Applies keys &amp; preferences immediately</span>
+        </div>
+      </div>
+
+      <div class="settings-section-label">Data</div>
       <div class="settings-group">
         <div class="settings-row">
           <div class="settings-row-left"><span class="settings-row-label">Export watchlist</span></div>
