@@ -6,6 +6,7 @@ import { hideSearchResults } from './render/search.js';
 import { closeModal, showImportModal, showClearConfirmModal } from './ui/modal.js';
 import { hideContextMenu } from './ui/context-menu.js';
 import { addFromSearch, doImport, exportWatchlist } from './import-export.js';
+import { encodeConfig, importConfigString }         from './config-string.js';
 
 export async function initSync() {
   if (!window.GITHUB_SYNC_TOKEN || !window.Sync) return false;
@@ -27,8 +28,9 @@ export async function initSync() {
 
 export function handleAction(action, el) {
   switch (action) {
-    case 'go-settings':    state.view = 'settings'; render(); break;
-    case 'back-to-main':   state.view = 'main';     render(); break;
+    case 'go-settings':         state.view = 'settings'; render(); break;
+    case 'back-to-main':        state.view = 'main';     render(); break;
+    case 'open-random-picker':  { import('./random-pick.js').then(m => m.openPicker()); break; }
 
     case 'open-detail': {
       const cardEl  = el.closest('[data-id]');
@@ -114,6 +116,23 @@ export function handleAction(action, el) {
     case 'close-modal':      closeModal(); break;
     case 'export-watchlist': exportWatchlist(); break;
     case 'show-import':      showImportModal(); break;
+
+    case 'copy-config-string': {
+      const str = encodeConfig(state);
+      navigator.clipboard.writeText(str).then(() => {
+        const btn = document.getElementById('copy-config-btn');
+        if (btn) { btn.textContent = 'Copied!'; setTimeout(() => { btn.textContent = 'Copy'; }, 1800); }
+      });
+      break;
+    }
+    case 'import-config-string': {
+      const inp = document.getElementById('config-string-input');
+      if (!inp?.value.trim()) break;
+      const ok = importConfigString(inp.value.trim(), state, saveState);
+      if (ok) render();
+      else { inp.style.outline = '1px solid var(--danger)'; setTimeout(() => { inp.style.outline = ''; }, 1500); }
+      break;
+    }
     case 'do-import':        doImport(); break;
 
     case 'edit-key': {
@@ -166,6 +185,16 @@ export function handleAction(action, el) {
     case 'toggle-setting': {
       const k = el.dataset.key;
       if (k in state.settings) { state.settings[k] = !state.settings[k]; saveState(); render(); }
+      break;
+    }
+    case 'set-setting-select': {
+      const k = el.dataset.key;
+      if (k in state.settings) { state.settings[k] = el.value; saveState(); render(); }
+      break;
+    }
+    case 'set-setting-range': {
+      const k = el.dataset.key;
+      if (k in state.settings) { state.settings[k] = parseFloat(el.value); saveState(); render(); }
       break;
     }
     case 'clear-watchlist':   showClearConfirmModal(); break;

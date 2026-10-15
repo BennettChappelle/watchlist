@@ -35,7 +35,7 @@ export function parseQueryYear(q) {
   const m = q.match(/(?:^|[\s(])(\d{4})(?:[)\s]|$)/);
   if (!m) return { title: q, year: null };
   const year  = m[1];
-  const title = q.replace(/\s*\(?\d{4}\)?\s*/g, ' ').trim() || q;
+  const title = (q.slice(0, m.index) + q.slice(m.index + m[0].length)).replace(/\s+/g, ' ').trim() || q;
   return { title, year };
 }
 

@@ -118,4 +118,5 @@ export function exportWatchlist() {
   a.href     = URL.createObjectURL(new Blob([JSON.stringify(state.watchlist, null, 2)], { type: 'application/json' }));
   a.download = `watchlist-${date}.json`;
   a.click();
+  setTimeout(() => URL.revokeObjectURL(a.href), 100);
 }

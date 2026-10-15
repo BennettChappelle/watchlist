@@ -10,10 +10,11 @@ function renderMain() {
     ? `<p class="search-key-hint">Searching your list only · <button class="search-key-btn" data-action="go-settings">Add OMDB key</button> for posters &amp; full search</p>`
     : '';
   return `<header class="header">
-    <span class="header-wordmark">Watchlist</span>
+    <span class="header-wordmark" data-action="back-to-main" role="link" tabindex="0" aria-label="Watchlist home">Watchlist</span>
     <div class="header-actions">
       ${window.GITHUB_SYNC_TOKEN ? `<span id="sync-dot" class="sync-dot" data-status="${window.Sync?.status || 'idle'}" title="Sync status"></span>` : ''}
-      <button class="header-settings-btn" data-action="go-settings" title="Settings">&#9881;</button>
+      <button class="header-btn" data-action="open-random-picker" title="Random pick (R)" aria-keyshortcuts="r"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m18 14 4 4-4 4"/><path d="m18 2 4 4-4 4"/><path d="M2 18h1.973a4 4 0 0 0 3.3-1.7l5.454-8.6a4 4 0 0 1 3.3-1.7H22"/><path d="M2 6h1.972a4 4 0 0 1 3.6 2.2"/><path d="M22 18h-6.041a4 4 0 0 1-3.3-1.8l-.359-.45"/></svg><span class="header-btn-label">Random</span></button>
+      <button class="header-settings-btn" data-action="go-settings" title="Settings" aria-label="Settings"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg></button>
     </div>
   </header>
   <div class="page-shell">

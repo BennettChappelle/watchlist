@@ -14,7 +14,7 @@ export function renderDetailPanel(item) {
   const meta = [item.year, item.type, item.imdbRating ? `&#9733; ${esc(item.imdbRating)}` : null].filter(Boolean).join(' · ');
   return `<div class="detail-panel open" id="detail-panel">
     <button class="detail-close" data-action="close-detail" title="Close">&#10005;</button>
-    <div class="detail-poster" style="${posterStyle(item)}" data-action="close-detail" title="Close" role="button" tabindex="0"></div>
+    <div class="detail-poster" style="${posterStyle(item)}" data-action="close-detail" title="Close" role="button" tabindex="0" aria-label="Close detail panel"></div>
     <div class="detail-body">
       <div class="detail-title"><a href="https://www.google.com/search?q=${encodeURIComponent(`${item.title} ${item.year || ''} ${item.type === 'series' ? 'show' : 'movie'}`.trim())}" target="_blank" rel="noopener" style="color:inherit;text-decoration:none" title="Search Google">${esc(item.title)}</a></div>
       <div class="detail-meta">${meta}</div>
@@ -44,7 +44,7 @@ export function renderShelf(type) {
 
   let body;
   if (allCount === 0) {
-    body = `<div class="shelf-empty-cta" data-action="focus-search">
+    body = `<div class="shelf-empty-cta" data-action="focus-search" role="button" tabindex="0" aria-label="Add your first ${label.toLowerCase()}">
       <span class="shelf-empty-plus">+</span>
       <span class="shelf-empty-label">Add your first ${label.toLowerCase()}</span>
     </div>`;
@@ -76,7 +76,10 @@ export function renderShelf(type) {
         <option value="title"${sort === 'title' ? ' selected' : ''}>Title</option>
         <option value="rating"${sort === 'rating' ? ' selected' : ''}>Rating</option>
       </select>
-      <button class="shelf-expand-btn" data-action="toggle-expand" data-type="${type}">${expanded ? '&#9650; List' : '&#9660; Grid'}</button>
+      <button class="shelf-expand-btn" data-action="toggle-expand" data-type="${type}" aria-label="${expanded ? 'Switch to grid view' : 'Switch to list view'}">${expanded
+        ? `<svg width="10" height="10" viewBox="0 0 10 10" fill="none" aria-hidden="true"><path d="M2 6.5l3-3 3 3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg> List`
+        : `<svg width="10" height="10" viewBox="0 0 10 10" fill="none" aria-hidden="true"><path d="M2 3.5l3 3 3-3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg> Grid`
+      }</button>
     </div>
     ${stats ? `<div class="shelf-stat">${stats}</div>` : ''}
     <div class="shelf-divider"></div>

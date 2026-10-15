@@ -17,6 +17,9 @@ export const state = {
     hideWatched: false,
     showSeasonPills: false,
     reduceMotion: false,
+    sound: true,
+    carouselStyle: 'coverflow',
+    spinSeconds: 5,
   },
 };
 
@@ -41,7 +44,9 @@ export function loadState() {
     state.sortMovies = localStorage.getItem('sortMovies') || 'added';
     const s = localStorage.getItem('settings');
     if (s) state.settings = { ...state.settings, ...JSON.parse(s) };
+    if (window._WL_SETTINGS) state.settings = { ...state.settings, ...window._WL_SETTINGS };
   } catch (e) { console.error('loadState', e); }
+  rebuildFuse();
 }
 
 export function saveState() {
@@ -54,7 +59,9 @@ export function saveState() {
     localStorage.setItem('settings',   JSON.stringify(state.settings));
     localStorage.setItem('updatedAt',  String(Date.now()));
     // omdbKey/syncToken intentionally excluded — credentials never synced to gist
-    window.Sync?.schedule({ watchlist: state.watchlist, settings: state.settings, sortSeries: state.sortSeries, sortMovies: state.sortMovies });
+    // Pass a thunk so the snapshot is captured at push time, not schedule time,
+    // preventing stale references if applyRemote() replaces state.watchlist first.
+    window.Sync?.schedule(() => ({ watchlist: state.watchlist, settings: state.settings, sortSeries: state.sortSeries, sortMovies: state.sortMovies }));
   } catch (e) { console.error('saveState', e); }
 }
 

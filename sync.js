@@ -93,11 +93,14 @@ async function push(data) {
   }
 }
 
-function schedule(data) {
+// Accept either a plain object or a zero-arg thunk so callers can
+// defer snapshot capture until the debounce fires (avoids stale-reference
+// bugs when state.watchlist is replaced by applyRemote() mid-debounce).
+function schedule(dataOrFn) {
   if (!token()) return;
   clearTimeout(_timer);
   setStatus('syncing');
-  _timer = setTimeout(() => push(data), 2000);
+  _timer = setTimeout(() => push(typeof dataOrFn === 'function' ? dataOrFn() : dataOrFn), 2000);
 }
 
 window.Sync = {

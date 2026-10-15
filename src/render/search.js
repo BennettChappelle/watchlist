@@ -5,6 +5,8 @@ import { esc, titleGradient } from '../utils.js';
 import { omdbSearch, tryYearExactLookup, parseQueryYear } from '../omdb.js';
 import { renderShimmerCards } from './card.js';
 
+let searchAbort = null;
+
 export function renderSearchResultsList(results) {
   if (!results?.length) return `<div class="search-empty">No results.</div>`;
   return `<div class="search-grid">${results.map(r => {
@@ -13,7 +15,7 @@ export function renderSearchResultsList(results) {
     const pStyle = poster
       ? `background-image:url("${esc(r.Poster)}");background-size:cover;background-position:center`
       : `background:${titleGradient(r.Title || '')}`;
-    return `<div class="search-card${added ? ' already-added' : ''}" data-action="add-from-search" data-id="${esc(r.imdbID)}" data-title="${esc(r.Title)}" data-year="${esc(r.Year)}" data-type="${esc(r.Type)}" data-poster="${esc(poster || '')}">
+    return `<div class="search-card${added ? ' already-added' : ''}" data-action="add-from-search" data-id="${esc(r.imdbID)}" data-title="${esc(r.Title)}" data-year="${esc(r.Year)}" data-type="${esc(r.Type)}" data-poster="${esc(poster || '')}" role="button" tabindex="${added ? '-1' : '0'}" aria-label="${esc(r.Title)} ${esc(r.Year)}, ${esc(r.Type)}${added ? ', already added' : ''}" aria-disabled="${added ? 'true' : 'false'}">
       <div class="card-poster" style="${pStyle}">
         ${added ? '<div class="watched-badge" style="background:var(--accent);color:#fff;font-size:11px">&#10003;</div>' : ''}
       </div>
@@ -53,29 +55,40 @@ export async function handleSearchInput(value) {
   if (!q) { hideSearchResults(); return; }
 
   if (state.omdbKey) {
+    searchAbort?.abort();
+    const ac = new AbortController();
+    searchAbort = ac;
+
     showSearchResults(renderShimmerCards(4));
     try {
       const data = await omdbSearch(parsedTitle, 1, parsedYear);
+      if (ac.signal.aborted) return;
       if (data.Search?.length) { showSearchResults(renderSearchResultsList(data.Search)); return; }
       if (parsedYear) {
         const exact = await tryYearExactLookup(parsedTitle, parsedYear);
+        if (ac.signal.aborted) return;
         if (exact) { showSearchResults(renderSearchResultsList([exact])); return; }
       }
       showSearchResults(renderSearchResultsList([]));
     } catch (e) {
+      if (ac.signal.aborted) return;
       console.error('search', e);
       const tooMany = /too many results/i.test(e.message);
+      const notFound = /movie not found|not found/i.test(e.message);
       if (tooMany) {
         try {
           const movieData = await omdbSearch(parsedTitle, 1, parsedYear, 'movie');
+          if (ac.signal.aborted) return;
           if (movieData.Search?.length) { showSearchResults(renderSearchResultsList(movieData.Search)); return; }
         } catch {}
         try {
           const seriesData = await omdbSearch(parsedTitle, 1, parsedYear, 'series');
+          if (ac.signal.aborted) return;
           if (seriesData.Search?.length) { showSearchResults(renderSearchResultsList(seriesData.Search)); return; }
         } catch {}
         if (parsedYear) {
           const exact = await tryYearExactLookup(parsedTitle, parsedYear);
+          if (ac.signal.aborted) return;
           if (exact) { showSearchResults(renderSearchResultsList([exact])); return; }
         }
         showSearchResults('<div class="search-empty">Too many results — try a more specific title.</div>');
@@ -84,9 +97,11 @@ export async function handleSearchInput(value) {
       if (parsedYear) {
         try {
           const exact = await tryYearExactLookup(parsedTitle, parsedYear);
+          if (ac.signal.aborted) return;
           if (exact) { showSearchResults(renderSearchResultsList([exact])); return; }
         } catch {}
       }
+      if (notFound) { showSearchResults(renderSearchResultsList([])); return; }
       showSearchResults(`<div class="search-empty">Search error: ${esc(e.message)}</div>`);
     }
   } else {
