@@ -14,6 +14,28 @@
   --bg:#242424;
   --fs:min(7.2vh,10vw);
   --ease:cubic-bezier(.22,1,.36,1);
+  --txt-hi:rgba(0,0,0,1);
+  --txt-mid:rgba(0,0,0,.44);
+  --txt-lo:rgba(0,0,0,.3);
+  --txt-xlo:rgba(0,0,0,.28);
+  --border:rgba(0,0,0,.5);
+  --input-border:rgba(0,0,0,.4);
+  --tag-hover:rgba(0,0,0,.1);
+}
+.deco{
+  position:fixed;bottom:0;right:0;
+  width:35vw;
+  padding:4vw;
+  pointer-events:none;
+  display:flex;align-items:flex-end;justify-content:flex-end;
+}
+.deco img{
+  display:block;
+  max-width:100%;
+  max-height:70vh;
+  width:auto;height:auto;
+  object-fit:contain;object-position:bottom right;
+  border-radius:1.2vw;
 }
 *{box-sizing:border-box}
 html,body{height:100%;margin:0;background:var(--bg);overflow:hidden}
@@ -46,7 +68,7 @@ body:not(.ready) .list{visibility:hidden}
 .inner{
   display:flex;align-items:center;
   font-weight:900;font-size:var(--fs);line-height:1;letter-spacing:-.035em;
-  color:rgba(255,255,255,.3);
+  color:var(--txt-lo);
   transform-origin:0 50%;
   transform:translate3d(0,0,0) scale(1);
   transition:transform .5s var(--ease),color .3s ease;
@@ -70,16 +92,16 @@ body:not(.ready) .list{visibility:hidden}
   font-weight:500;letter-spacing:.06em;
   transition:background-color .25s ease,color .25s ease,opacity .25s ease;
 }
-.tag:hover{background:rgba(255,255,255,.14)}
+.tag:hover{background:var(--tag-hover)}
 .hint{opacity:.55;letter-spacing:.06em}
 .meta input{
-  font:inherit;color:#fff;background:transparent;border:0;outline:0;
-  border-bottom:2px solid rgba(255,255,255,.4);
-  padding:.55em 0;width:min(36vw,560px);caret-color:#fff;
+  font:inherit;color:var(--txt-hi);background:transparent;border:0;outline:0;
+  border-bottom:2px solid var(--input-border);
+  padding:.55em 0;width:min(36vw,560px);caret-color:currentColor;
   transition:border-color .25s ease;
 }
-.meta input:focus{border-bottom-color:#fff}
-.meta input.bad{animation:shake .32s ease;border-bottom-color:#fff}
+.meta input:focus{border-bottom-color:var(--txt-hi)}
+.meta input.bad{animation:shake .32s ease;border-bottom-color:var(--txt-hi)}
 @keyframes shake{20%{transform:translateX(-7px)}40%{transform:translateX(6px)}60%{transform:translateX(-4px)}80%{transform:translateX(2px)}}
 
 /* launch / exit */
@@ -100,6 +122,7 @@ body:not(.ready) .list{visibility:hidden}
 </head>
 <body>
 <main class="stage"><ul class="list" id="list" role="menu"></ul></main>
+<div class="deco" id="deco"><img id="deco-img" src="" alt=""></div>
 
 <script>
 (function () {
@@ -286,11 +309,12 @@ body:not(.ready) .list{visibility:hidden}
   }
 
   var ALPHA = [1, .44, .35, .3];
+  var _txtRgb = '0,0,0';
   function paint() {
     rowEls.forEach(function (e, k) {
       var d = Math.abs(k - cur), a = ALPHA[Math.min(d, 3)], r = rowsDef[k];
       if (view === 'settings' && r.kind === 'svc' && !state.on[r.id]) a *= .55;
-      e.inner.style.color = 'rgba(255,255,255,' + a + ')';
+      e.inner.style.color = 'rgba(' + _txtRgb + ',' + a + ')';
       e.li.classList.toggle('cur', k === cur);
       e.li.setAttribute('aria-current', k === cur ? 'true' : 'false');
     });
@@ -461,6 +485,73 @@ body:not(.ready) .list{visibility:hidden}
     leaving = false;
     document.body.classList.remove('leaving');
   });
+
+  /* ---------- deco ---------- */
+  (function () {
+    var PALETTE = ['#f8f9fa','#e9ecef','#dee2e6','#ced4da','#adb5bd','#6c757d','#495057','#343a40','#212529'];
+    var COLOR_IMGS = [
+      'images/color/_.jpeg',
+      'images/color/486405f494719617d25ed1f999319faf.jpg',
+      'images/color/5eb05261184fc9baaeeabf9a83c8f824.jpg',
+      'images/color/980095937680040976.jpeg',
+      'images/color/bc78deccf39886476de24d7c6c321eef.jpg',
+      'images/color/be65147ce2be9dc44a37349821703c57.jpg',
+      'images/color/C_O_P_R_A_6.jpeg',
+      'images/color/kidsa_legalpagan_on_X.jpeg'
+    ];
+    var WHITE_IMGS = [
+      'images/white/2a18388d7800ffc303248f82989e08d0.png',
+      'images/white/310b72ee2a68699050769e4cce8c6177.png',
+      'images/white/4e7ce5ac5ac9195c67dbf77724509adf.png',
+      'images/white/762970424f7f19ac1703531778ef024f.png',
+      'images/white/927d5bcf5e4f363c91886bc7a07949ea.png',
+      'images/white/9a9a746171646351cf2c6c47f34a749f.png',
+      'images/white/aa474fe996ff95719b0768595299be01.png',
+      'images/white/c1e18cdd4d32853b63774303a450040b.png',
+      'images/white/cd79b1b7519737ff08cacf244c75f706.png',
+      'images/white/cf390a36c0bf02f296c662a4486b97a0.png',
+      'images/white/e166f2e12c8c32fb4e5380192e997290.png'
+    ];
+    function pickExcluding(arr, exclude) {
+      var pool = arr.length > 1 ? arr.filter(function(x) { return x !== exclude; }) : arr;
+      return pool[Math.floor(Math.random() * pool.length)];
+    }
+
+    var prev = {};
+    try { prev = JSON.parse(sessionStorage.getItem('launcher.prev') || '{}'); } catch(e) {}
+
+    var bg = pickExcluding(PALETTE, prev.bg);
+    document.documentElement.style.setProperty('--bg', bg);
+    var r = parseInt(bg.slice(1,3),16), g = parseInt(bg.slice(3,5),16), b2 = parseInt(bg.slice(5,7),16);
+    var lum = 0.299*r + 0.587*g + 0.114*b2;
+    var dark = lum < 128;
+    var tc = dark ? '255,255,255' : '0,0,0';
+    _txtRgb = tc;
+    var root = document.documentElement;
+    root.style.setProperty('--txt-hi',   'rgba('+tc+',1)');
+    root.style.setProperty('--txt-mid',  'rgba('+tc+',.44)');
+    root.style.setProperty('--txt-lo',   'rgba('+tc+',.3)');
+    root.style.setProperty('--txt-xlo',  'rgba('+tc+',.28)');
+    root.style.setProperty('--border',   'rgba('+tc+',.5)');
+    root.style.setProperty('--input-border','rgba('+tc+',.4)');
+    root.style.setProperty('--tag-hover','rgba('+tc+',.1)');
+
+    // light bg: prefer white imgs (alpha PNGs) on very light, mix on mid; dark bg: color only
+    var src;
+    if (dark) {
+      src = pickExcluding(COLOR_IMGS, prev.img);
+    } else if (lum > 200) {
+      // very light — white imgs look cleanest
+      src = pickExcluding(Math.random() < 0.75 ? WHITE_IMGS : COLOR_IMGS, prev.img);
+    } else {
+      // mid-light — even split
+      src = pickExcluding(Math.random() < 0.5 ? WHITE_IMGS : COLOR_IMGS, prev.img);
+    }
+
+    try { sessionStorage.setItem('launcher.prev', JSON.stringify({ bg: bg, img: src })); } catch(e) {}
+    var img = document.getElementById('deco-img');
+    img.src = src;
+  })();
 
   /* ---------- boot ---------- */
   function start() {
