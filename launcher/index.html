@@ -1,0 +1,479 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="dark">
+<title>launcher.</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%23242424'/%3E%3Ccircle cx='32' cy='32' r='11' fill='%23ffffff'/%3E%3C/svg%3E">
+<style>
+@font-face{font-family:"Satoshi";src:url("fonts/Satoshi-Black.woff2") format("woff2");font-weight:900;font-style:normal;font-display:block}
+@font-face{font-family:"Satoshi";src:url("fonts/Satoshi-Medium.woff2") format("woff2");font-weight:500;font-style:normal;font-display:block}
+
+:root{
+  --bg:#242424;
+  --fs:min(7.2vh,10vw);
+  --ease:cubic-bezier(.22,1,.36,1);
+}
+*{box-sizing:border-box}
+html,body{height:100%;margin:0;background:var(--bg);overflow:hidden}
+body{
+  font-family:"Satoshi","Helvetica Neue",Helvetica,Arial,sans-serif;
+  -webkit-font-smoothing:antialiased;
+  -moz-osx-font-smoothing:grayscale;
+  text-rendering:optimizeLegibility;
+  user-select:none;-webkit-user-select:none;
+}
+
+.stage{position:fixed;inset:0;padding:5vh 5vw;display:flex;align-items:center}
+.list{
+  list-style:none;margin:0;padding:0;width:100%;
+  transition:opacity .16s ease,transform .22s ease;
+}
+.list.out{opacity:0;transform:translate3d(-1.2vw,0,0)}
+body:not(.ready) .list{visibility:hidden}
+
+.row{
+  display:flex;align-items:center;
+  width:fit-content;max-width:100%;
+  height:calc(var(--fs)*1.38);
+  cursor:pointer;
+  animation:rise .8s var(--ease) backwards;
+  animation-delay:calc(var(--i)*48ms);
+}
+@keyframes rise{from{opacity:0;transform:translate3d(-1.6vw,0,0)}}
+
+.inner{
+  display:flex;align-items:center;
+  font-weight:900;font-size:var(--fs);line-height:1;letter-spacing:-.035em;
+  color:rgba(255,255,255,.3);
+  transform-origin:0 50%;
+  transform:translate3d(0,0,0) scale(1);
+  transition:transform .5s var(--ease),color .3s ease;
+  will-change:transform;
+}
+.row.cur .inner{transform:translate3d(.6vw,0,0) scale(1.06)}
+
+.label{display:inline-block;white-space:nowrap}
+.settings .label{min-width:6.3em}
+
+.meta{
+  display:flex;align-items:center;gap:1.4vw;
+  margin-left:2.6vw;
+  font-weight:500;font-size:clamp(13px,2.1vh,22px);letter-spacing:.01em;line-height:1;
+  transform:translateY(.25vh);
+}
+.url{max-width:34vw;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;opacity:.85}
+.url.empty{opacity:.5}
+.tag{
+  padding:.55em 1em;border:1.5px solid currentColor;border-radius:99px;
+  font-weight:500;letter-spacing:.06em;
+  transition:background-color .25s ease,color .25s ease,opacity .25s ease;
+}
+.tag:hover{background:rgba(255,255,255,.14)}
+.hint{opacity:.55;letter-spacing:.06em}
+.meta input{
+  font:inherit;color:#fff;background:transparent;border:0;outline:0;
+  border-bottom:2px solid rgba(255,255,255,.4);
+  padding:.55em 0;width:min(36vw,560px);caret-color:#fff;
+  transition:border-color .25s ease;
+}
+.meta input:focus{border-bottom-color:#fff}
+.meta input.bad{animation:shake .32s ease;border-bottom-color:#fff}
+@keyframes shake{20%{transform:translateX(-7px)}40%{transform:translateX(6px)}60%{transform:translateX(-4px)}80%{transform:translateX(2px)}}
+
+/* launch / exit */
+.leaving .row{pointer-events:none}
+.leaving .row:not(.cur){
+  opacity:0;transform:translate3d(0,-1.4vh,0);
+  transition:opacity .22s ease,transform .3s ease;
+  transition-delay:calc(var(--i)*16ms);
+}
+.leaving .row.cur{opacity:0;transition:opacity .18s ease .17s}
+.leaving .row.cur .inner{transform:translate3d(1.4vw,0,0) scale(1.1)}
+
+@media (prefers-reduced-motion:reduce){
+  .row{animation-duration:.01s;animation-delay:0s}
+  .inner,.list{transition-duration:.01s}
+}
+</style>
+</head>
+<body>
+<main class="stage"><ul class="list" id="list" role="menu"></ul></main>
+
+<script>
+(function () {
+  'use strict';
+
+  /* ---------- config ---------- */
+  var SERVICES = [
+    { id: 'netflix',    label: 'netflix',    url: 'https://www.netflix.com' },
+    { id: 'hulu',       label: 'hulu',       url: 'https://www.hulu.com' },
+    { id: 'hboMax',     label: 'hboMax',     url: 'https://www.hbomax.com' },
+    { id: 'primeVideo', label: 'primeVideo', url: 'https://www.primevideo.com' },
+    { id: 'disney',     label: 'disney',     url: 'https://www.disneyplus.com' }
+  ];
+  var STORE_KEY = 'launcher.v1';
+
+  /* ---------- state + storage ---------- */
+  function freshState() {
+    var s = { urls: {}, on: {}, watchlist: 'https://bennettchappelle.github.io/watchlist/' };
+    SERVICES.forEach(function (v) { s.urls[v.id] = v.url; s.on[v.id] = true; });
+    return s;
+  }
+  function normalize(v) {
+    v = String(v || '').trim();
+    if (!v) return '';
+    if (!/^[a-z][a-z0-9+.\-]*:\/\//i.test(v)) v = 'https://' + v;
+    try {
+      var u = new URL(v);
+      if (u.protocol !== 'http:' && u.protocol !== 'https:') return null;
+      return u.href;
+    } catch (e) { return null; }
+  }
+  function load() {
+    var s = freshState();
+    try {
+      var raw = JSON.parse(localStorage.getItem(STORE_KEY) || 'null');
+      if (raw && typeof raw === 'object') {
+        SERVICES.forEach(function (v) {
+          if (raw.urls && raw.urls[v.id]) { var n = normalize(raw.urls[v.id]); if (n) s.urls[v.id] = n; }
+          if (raw.on && raw.on[v.id] === false) s.on[v.id] = false;
+        });
+            if (raw.watchlist) { var w = normalize(raw.watchlist); if (w) s.watchlist = w; }
+      }
+    } catch (e) {}
+    return s;
+  }
+  function save() { try { localStorage.setItem(STORE_KEY, JSON.stringify(state)); } catch (e) {} }
+  var state = load();
+
+  /* ---------- audio ---------- */
+  var ctx = null, dry = null, filt = null, unlocked = false;
+  var PENT = [0, 2, 4, 7, 9];
+  function freq(n) { return 130.81 * Math.pow(2, (Math.floor(n / 5) * 12 + PENT[n % 5]) / 12); }
+  function unlock() {
+    if (unlocked) return;
+    unlocked = true;
+    try {
+      var AC = window.AudioContext || window.webkitAudioContext;
+      ctx = new AC();
+      var comp = ctx.createDynamicsCompressor();
+      filt = ctx.createBiquadFilter();
+      filt.type = 'lowpass'; filt.frequency.value = 3200; filt.Q.value = .4;
+      var master = ctx.createGain(); master.gain.value = .5;
+      filt.connect(master);
+      var dryG = ctx.createGain(); dryG.gain.value = .85;
+      var wetG = ctx.createGain(); wetG.gain.value = .3;
+      var conv = ctx.createConvolver();
+      var len = Math.floor(ctx.sampleRate * 1.5), buf = ctx.createBuffer(2, len, ctx.sampleRate);
+      for (var c = 0; c < 2; c++) {
+        var d = buf.getChannelData(c);
+        for (var k = 0; k < len; k++) d[k] = (Math.random() * 2 - 1) * Math.pow(1 - k / len, 3.2);
+      }
+      conv.buffer = buf;
+      master.connect(dryG); dryG.connect(comp);
+      master.connect(conv); conv.connect(wetG); wetG.connect(comp);
+      comp.connect(ctx.destination);
+      ctx.resume();
+    } catch (e) { ctx = null; }
+  }
+  function voice(f, t, g) {
+    var o1 = ctx.createOscillator(), o2 = ctx.createOscillator();
+    var env = ctx.createGain(), g2 = ctx.createGain();
+    o1.type = 'triangle'; o1.frequency.value = f;
+    o2.type = 'sine';     o2.frequency.value = f * 2;
+    g2.gain.value = .25;
+    env.gain.setValueAtTime(.0001, t);
+    env.gain.exponentialRampToValueAtTime(.12 * g, t + .006);
+    env.gain.exponentialRampToValueAtTime(.0001, t + .9);
+    o1.connect(env); o2.connect(g2); g2.connect(env); env.connect(filt);
+    o1.start(t); o2.start(t); o1.stop(t + .95); o2.stop(t + .95);
+  }
+  function chord(i) {
+    var t = ctx.currentTime + .005, gs = [1, .72, .55];
+    [i, i + 2, i + 4].forEach(function (n, j) { voice(freq(n), t + j * .016, gs[j]); });
+  }
+  function play(i) {
+    if (!unlocked || !ctx) return;
+    if (ctx.state === 'running') chord(i);
+    else ctx.resume().then(function () { chord(i); }).catch(function () {});
+  }
+
+  /* ---------- view model ---------- */
+  var list = document.getElementById('list');
+  var view = 'main', rowsDef = [], rowEls = [], cur = 0;
+  var editing = -1, busy = false, leaving = false, armed = false, armTimer = 0;
+
+  function defs() {
+    var r = [], settings = view === 'settings';
+    SERVICES.forEach(function (v) {
+      if (settings || state.on[v.id]) r.push({ kind: 'svc', id: v.id, label: v.label });
+    });
+    r.push({ kind: 'watchlist', id: 'watchlist', label: 'watchlist' });
+    if (settings) {
+      r.push({ kind: 'reset', id: 'reset', label: 'reset' });
+      r.push({ kind: 'back', id: 'back', label: 'back' });
+    } else {
+      r.push({ kind: 'settings', id: 'settings', label: 'settings' });
+    }
+    return r;
+  }
+  function indexOfId(id) {
+    for (var i = 0; i < rowsDef.length; i++) if (rowsDef[i].id === id) return i;
+    return 0;
+  }
+  function urlOf(r) { return r.kind === 'svc' ? state.urls[r.id] : state.watchlist; }
+
+  function el(tag, cls, text) {
+    var n = document.createElement(tag);
+    if (cls) n.className = cls;
+    if (text != null) n.textContent = text;
+    return n;
+  }
+
+  function updateMeta(i) {
+    var r = rowsDef[i], e = rowEls[i];
+    if (!e || !e.meta) return;
+    e.meta.textContent = '';
+    var u = urlOf(r);
+    e.meta.appendChild(el('span', 'url' + (u ? '' : ' empty'), u || 'not set'));
+    if (r.kind === 'svc') {
+      var tag = el('span', 'tag', state.on[r.id] ? 'on' : 'off');
+      tag.addEventListener('click', function (ev) {
+        ev.stopPropagation();
+        if (editing >= 0 || leaving) return;
+        setCur(i, true);
+        toggle(i);
+      });
+      e.meta.appendChild(tag);
+    }
+  }
+
+  function build() {
+    list.textContent = '';
+    rowEls = [];
+    rowsDef = defs();
+    list.classList.toggle('settings', view === 'settings');
+    rowsDef.forEach(function (r, i) {
+      var li = el('li', 'row');
+      li.style.setProperty('--i', i);
+      li.setAttribute('role', 'menuitem');
+      var inner = el('div', 'inner');
+      var label = el('span', 'label', r.label + '.');
+      inner.appendChild(label);
+      var meta = null;
+      if (view === 'settings' && (r.kind === 'svc' || r.kind === 'watchlist')) {
+        meta = el('span', 'meta');
+        inner.appendChild(meta);
+      }
+      li.appendChild(inner);
+      li.addEventListener('pointermove', function () {
+        if (editing >= 0 || busy || leaving) return;
+        setCur(i, true);
+      });
+      li.addEventListener('click', function () {
+        if (editing >= 0 || busy || leaving) return;
+        setCur(i, true);
+        activate(i, false);
+      });
+      list.appendChild(li);
+      rowEls.push({ li: li, inner: inner, label: label, meta: meta });
+      updateMeta(i);
+    });
+    if (cur >= rowsDef.length) cur = rowsDef.length - 1;
+    paint();
+  }
+
+  var ALPHA = [1, .44, .35, .3];
+  function paint() {
+    rowEls.forEach(function (e, k) {
+      var d = Math.abs(k - cur), a = ALPHA[Math.min(d, 3)], r = rowsDef[k];
+      if (view === 'settings' && r.kind === 'svc' && !state.on[r.id]) a *= .55;
+      e.inner.style.color = 'rgba(255,255,255,' + a + ')';
+      e.li.classList.toggle('cur', k === cur);
+      e.li.setAttribute('aria-current', k === cur ? 'true' : 'false');
+    });
+  }
+  function setCur(i, sound) {
+    if (i === cur || i < 0 || i >= rowsDef.length) return;
+    cur = i;
+    paint();
+    if (sound) play(i);
+  }
+  function move(dir) {
+    var n = rowsDef.length;
+    setCur((cur + dir + n) % n, true);
+  }
+
+  function show(v, targetId, then) {
+    if (busy || leaving) return;
+    busy = true;
+    list.classList.add('out');
+    setTimeout(function () {
+      view = v;
+      rowsDef = defs();
+      cur = targetId ? indexOfId(targetId) : 0;
+      build();
+      list.classList.remove('out');
+      busy = false;
+      play(cur);
+      if (then === 'edit') startEdit(cur);
+    }, 170);
+  }
+
+  /* ---------- actions ---------- */
+  function go(url) {
+    if (leaving) return;
+    leaving = true;
+    document.body.classList.add('leaving');
+    setTimeout(function () { window.location.href = url; }, 340);
+  }
+
+  function activate(i, viaSpace) {
+    var r = rowsDef[i];
+    if (!r) return;
+    if (view === 'main') {
+      if (r.kind === 'svc') return go(state.urls[r.id]);
+      if (r.kind === 'watchlist') {
+        if (state.watchlist) return go(state.watchlist);
+        return show('settings', 'watchlist', 'edit');
+      }
+      if (r.kind === 'settings') return show('settings', null);
+      return;
+    }
+    if (r.kind === 'svc' && viaSpace) return toggle(i);
+    if (r.kind === 'svc' || r.kind === 'watchlist') return startEdit(i);
+    if (r.kind === 'reset') return doReset(i);
+    if (r.kind === 'back') return show('main', 'settings');
+  }
+
+  function toggle(i) {
+    var r = rowsDef[i];
+    if (!r || r.kind !== 'svc') return;
+    state.on[r.id] = !state.on[r.id];
+    save();
+    updateMeta(i);
+    paint();
+  }
+
+  function setLabel(i, text) {
+    if (view === 'settings' && rowEls[i] && rowsDef[i] && rowsDef[i].kind === 'reset') {
+      rowEls[i].label.textContent = text + '.';
+    }
+  }
+  function doReset(i) {
+    clearTimeout(armTimer);
+    if (!armed) {
+      armed = true;
+      setLabel(i, 'sure?');
+      armTimer = setTimeout(function () { armed = false; setLabel(i, 'reset'); }, 2600);
+      return;
+    }
+    armed = false;
+    state = freshState();
+    save();
+    setLabel(i, 'done');
+    rowEls.forEach(function (_, k) { updateMeta(k); });
+    paint();
+    armTimer = setTimeout(function () { setLabel(i, 'reset'); }, 1100);
+  }
+
+  /* ---------- inline edit ---------- */
+  function startEdit(i) {
+    var r = rowsDef[i], e = rowEls[i];
+    if (!e || !e.meta || editing >= 0) return;
+    editing = i;
+    e.meta.textContent = '';
+    var inp = document.createElement('input');
+    inp.type = 'text';
+    inp.spellcheck = false;
+    inp.autocomplete = 'off';
+    inp.setAttribute('autocapitalize', 'off');
+    inp.placeholder = 'https://';
+    inp.value = urlOf(r) || '';
+    e.meta.appendChild(inp);
+    e.meta.appendChild(el('span', 'hint', 'enter'));
+    inp.focus();
+    inp.select();
+    var done = false;
+    function finish() { done = true; editing = -1; updateMeta(i); }
+    inp.addEventListener('keydown', function (ev) {
+      ev.stopPropagation();
+      if (ev.key === 'Enter') {
+        ev.preventDefault();
+        var v = inp.value.trim(), n;
+        if (!v) n = (r.kind === 'svc') ? SERVICES[indexOfService(r.id)].url : '';
+        else n = normalize(v);
+        if (n === null) {
+          inp.classList.remove('bad'); void inp.offsetWidth; inp.classList.add('bad');
+          return;
+        }
+        if (r.kind === 'svc') state.urls[r.id] = n; else state.watchlist = n;
+        save();
+        finish();
+      } else if (ev.key === 'Escape') {
+        ev.preventDefault();
+        finish();
+      }
+    });
+    inp.addEventListener('blur', function () { if (!done && editing === i) finish(); });
+  }
+  function indexOfService(id) {
+    for (var i = 0; i < SERVICES.length; i++) if (SERVICES[i].id === id) return i;
+    return 0;
+  }
+
+  /* ---------- input ---------- */
+  ['pointerdown', 'keydown', 'touchstart'].forEach(function (t) {
+    window.addEventListener(t, unlock, { capture: true });
+  });
+
+  window.addEventListener('keydown', function (e) {
+    if (editing >= 0 || busy || leaving) return;
+    if (e.metaKey || e.ctrlKey || e.altKey) return;
+    switch (e.key) {
+      case 'ArrowDown': e.preventDefault(); move(1); break;
+      case 'ArrowUp':   e.preventDefault(); move(-1); break;
+      case 'Tab':       e.preventDefault(); move(e.shiftKey ? -1 : 1); break;
+      case 'Enter':     e.preventDefault(); if (!e.repeat) activate(cur, false); break;
+      case ' ':         e.preventDefault(); if (!e.repeat) activate(cur, true); break;
+      case 'Escape':    if (view === 'settings') { e.preventDefault(); show('main', 'settings'); } break;
+    }
+  });
+
+  var lastT = 0, lastAbs = 0, trigT = 0, locked = false;
+  window.addEventListener('wheel', function (e) {
+    e.preventDefault();
+    if (editing >= 0 || busy || leaving) return;
+    var dy = Math.abs(e.deltaY) >= Math.abs(e.deltaX) ? e.deltaY : e.deltaX;
+    var a = Math.abs(dy), t = performance.now();
+    if (t - lastT > 140) locked = false;
+    else if (locked && a > lastAbs + 8 && t - trigT > 300) locked = false;
+    lastT = t; lastAbs = a;
+    if (!locked && a >= 6) {
+      move(dy > 0 ? 1 : -1);
+      locked = true; trigT = t;
+    }
+  }, { passive: false });
+
+  window.addEventListener('pageshow', function () {
+    leaving = false;
+    document.body.classList.remove('leaving');
+  });
+
+  /* ---------- boot ---------- */
+  function start() {
+    if (document.body.classList.contains('ready')) return;
+    build();
+    document.body.classList.add('ready');
+  }
+  var fontsReady = (document.fonts && document.fonts.load)
+    ? Promise.all([document.fonts.load('900 1em Satoshi'), document.fonts.load('500 1em Satoshi')])
+    : Promise.resolve();
+  fontsReady.then(start, start);
+  setTimeout(start, 800);
+})();
+</script>
+</body>
+</html>
