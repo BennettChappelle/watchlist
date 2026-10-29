@@ -235,6 +235,7 @@ body:not(.ready) .list{visibility:hidden}
     });
     r.push({ kind: 'watchlist', id: 'watchlist', label: 'watchlist' });
     if (settings) {
+      r.push({ kind: 'imgmgr', id: 'imgmgr', label: 'images' });
       r.push({ kind: 'reset', id: 'reset', label: 'reset' });
       r.push({ kind: 'back', id: 'back', label: 'back' });
     } else {
@@ -368,6 +369,7 @@ body:not(.ready) .list{visibility:hidden}
     }
     if (r.kind === 'svc' && viaSpace) return toggle(i);
     if (r.kind === 'svc' || r.kind === 'watchlist') return startEdit(i);
+    if (r.kind === 'imgmgr') return go('image-manager.html');
     if (r.kind === 'reset') return doReset(i);
     if (r.kind === 'back') return show('main', 'settings');
   }
@@ -492,7 +494,6 @@ body:not(.ready) .list{visibility:hidden}
     var COLOR_IMGS = [
       'images/color/_.jpeg',
       'images/color/486405f494719617d25ed1f999319faf.jpg',
-      'images/color/5eb05261184fc9baaeeabf9a83c8f824.jpg',
       'images/color/980095937680040976.jpeg',
       'images/color/bc78deccf39886476de24d7c6c321eef.jpg',
       'images/color/be65147ce2be9dc44a37349821703c57.jpg',

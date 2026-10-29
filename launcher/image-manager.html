@@ -1,0 +1,493 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>image manager.</title>
+<style>
+@font-face{font-family:"Satoshi";src:url("fonts/Satoshi-Black.woff2") format("woff2");font-weight:900;font-style:normal;font-display:block}
+@font-face{font-family:"Satoshi";src:url("fonts/Satoshi-Medium.woff2") format("woff2");font-weight:500;font-style:normal;font-display:block}
+
+:root{
+  --bg:#111;
+  --surface:#181818;
+  --surface-hi:#222;
+  --border:rgba(255,255,255,.07);
+  --border-hi:rgba(255,255,255,.16);
+  --txt-hi:rgba(255,255,255,.9);
+  --txt-mid:rgba(255,255,255,.42);
+  --txt-lo:rgba(255,255,255,.2);
+  --ease:cubic-bezier(.22,1,.36,1);
+  --dur:.2s;
+}
+
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{min-height:100%;background:var(--bg);color:var(--txt-hi);
+  font-family:"Satoshi","Helvetica Neue",Helvetica,Arial,sans-serif;
+  -webkit-font-smoothing:antialiased}
+
+header{
+  padding:4vh 5vw 3vh;
+  display:flex;align-items:baseline;gap:2ch;
+  border-bottom:1px solid var(--border);
+  position:sticky;top:0;background:var(--bg);z-index:10;
+}
+header h1{font-weight:900;font-size:clamp(18px,2.4vw,32px);letter-spacing:-.035em}
+header h1 span{color:var(--txt-lo)}
+.sub{font-weight:500;font-size:12px;color:var(--txt-lo);letter-spacing:.04em}
+.back-btn{
+  margin-left:auto;
+  font-family:inherit;font-weight:900;font-size:11px;letter-spacing:.07em;text-transform:uppercase;
+  border:1px solid rgba(255,255,255,.18);border-radius:99px;
+  background:transparent;color:rgba(255,255,255,.45);
+  padding:.35em .9em;cursor:pointer;
+  transition:background .14s ease,color .14s ease,border-color .14s ease;
+  text-decoration:none;display:inline-flex;align-items:center;
+}
+.back-btn:hover{background:rgba(255,255,255,.08);color:rgba(255,255,255,.85);border-color:rgba(255,255,255,.35)}
+
+main{
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  min-height:calc(100vh - 80px);
+}
+
+/* columns */
+.col{display:flex;flex-direction:column;padding:3vh 4vw;}
+.col+.col{border-left:1px solid var(--border)}
+.col-head{
+  display:flex;align-items:center;gap:1ch;
+  padding-bottom:2vh;margin-bottom:2vh;
+  border-bottom:1px solid var(--border);
+}
+.col-head h2{font-weight:900;font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--txt-lo)}
+.badge{
+  font-weight:500;font-size:10px;letter-spacing:.05em;
+  padding:.2em .6em;border-radius:99px;
+  background:rgba(255,255,255,.07);color:var(--txt-mid);
+}
+
+/* grid of cards */
+.grid{
+  display:grid;
+  grid-template-columns:repeat(auto-fill,minmax(130px,1fr));
+  gap:10px;
+}
+
+/* card */
+.card{
+  border-radius:7px;overflow:hidden;
+  background:var(--surface);
+  border:1px solid var(--border);
+  cursor:grab;
+  transition:border-color var(--dur) ease, box-shadow var(--dur) ease, transform var(--dur) var(--ease);
+  position:relative;
+}
+.card:hover{border-color:var(--border-hi);box-shadow:0 6px 24px rgba(0,0,0,.5);transform:translateY(-1px)}
+.card:active{cursor:grabbing;transform:translateY(0)}
+.card.dragging{opacity:.3;transform:scale(.95)}
+
+/* thumbnail — canvas or img */
+.card-thumb{
+  display:block;width:100%;aspect-ratio:1;
+  object-fit:cover;
+}
+canvas.card-thumb{display:block;width:100%;aspect-ratio:1}
+
+/* checkered for white cards */
+.col--white .card-thumb{
+  background:repeating-conic-gradient(#242424 0% 25%,#1c1c1c 0% 50%) 0 0/12px 12px;
+}
+
+/* hover overlay */
+.card-overlay{
+  position:absolute;inset:0;
+  display:flex;flex-direction:column;align-items:stretch;justify-content:flex-end;
+  background:linear-gradient(to top,rgba(0,0,0,.82) 0%,rgba(0,0,0,.0) 55%);
+  opacity:0;transition:opacity .16s ease;
+  padding:7px 8px 8px;
+  gap:6px;
+}
+.card:hover .card-overlay{opacity:1}
+
+.card-name{
+  font-weight:500;font-size:9px;letter-spacing:.03em;
+  color:rgba(255,255,255,.55);
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+}
+
+/* slider rows — white cards only */
+.sliders{display:flex;flex-direction:column;gap:4px}
+.slider-row{display:flex;align-items:center;gap:5px}
+.slider-row .slabel{
+  font-weight:900;font-size:8px;letter-spacing:.07em;text-transform:uppercase;
+  color:rgba(255,255,255,.38);white-space:nowrap;min-width:3ch;
+}
+.thresh-slider{
+  flex:1;-webkit-appearance:none;appearance:none;
+  height:3px;border-radius:99px;
+  background:rgba(255,255,255,.15);outline:none;cursor:pointer;
+}
+.thresh-slider::-webkit-slider-thumb{
+  -webkit-appearance:none;appearance:none;
+  width:11px;height:11px;border-radius:50%;
+  background:#fff;cursor:pointer;
+  box-shadow:0 0 0 2px rgba(0,0,0,.4);
+}
+.thresh-slider:focus-visible{outline:2px solid rgba(255,255,255,.5);outline-offset:2px}
+.thresh-val{
+  font-weight:900;font-size:8px;letter-spacing:.03em;
+  color:rgba(255,255,255,.45);min-width:2.5ch;text-align:right;
+}
+
+.move-btn{
+  font-family:inherit;font-weight:900;font-size:9px;letter-spacing:.07em;text-transform:uppercase;
+  border:1px solid rgba(255,255,255,.25);border-radius:99px;
+  background:rgba(255,255,255,.08);color:rgba(255,255,255,.8);
+  padding:.3em .7em;cursor:pointer;align-self:flex-start;
+  transition:background .14s ease,border-color .14s ease;
+  white-space:nowrap;
+}
+.move-btn:hover{background:rgba(255,255,255,.18);border-color:rgba(255,255,255,.45)}
+.move-btn:focus-visible{outline:2px solid rgba(255,255,255,.55);outline-offset:2px}
+
+/* drop zone wrapper */
+.drop-zone{
+  flex:1;border-radius:8px;border:1.5px dashed transparent;
+  transition:border-color var(--dur) ease,background var(--dur) ease;
+  padding:2px;
+}
+.drop-zone.drag-over{border-color:var(--border-hi);background:rgba(255,255,255,.04)}
+
+/* empty */
+.empty{
+  display:flex;align-items:center;justify-content:center;
+  min-height:10vh;border-radius:6px;
+  border:1.5px dashed var(--border);
+  color:var(--txt-lo);font-weight:500;font-size:11px;letter-spacing:.06em;
+}
+
+/* toast */
+.toast{
+  position:fixed;bottom:3vh;left:50%;transform:translateX(-50%) translateY(10px);
+  background:var(--surface-hi,#222);border:1px solid var(--border-hi);border-radius:99px;
+  padding:.5em 1.3em;font-weight:500;font-size:11px;letter-spacing:.04em;color:var(--txt-hi);
+  opacity:0;pointer-events:none;transition:opacity .18s ease,transform .22s var(--ease);
+  white-space:nowrap;z-index:100;
+}
+.toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+</style>
+</head>
+<body>
+<header>
+  <h1>image manager<span>.</span></h1>
+  <span class="sub" id="sub">0 images</span>
+  <a href="index.html" class="back-btn">← back</a>
+</header>
+<main>
+  <div class="col" id="col-color">
+    <div class="col-head">
+      <h2>color</h2><span class="badge" id="badge-color">0</span>
+    </div>
+    <div class="drop-zone" id="zone-color" data-target="color">
+      <div class="grid" id="grid-color"></div>
+    </div>
+  </div>
+  <div class="col col--white" id="col-white">
+    <div class="col-head">
+      <h2>white</h2><span class="badge" id="badge-white">0</span>
+    </div>
+    <div class="drop-zone" id="zone-white" data-target="white">
+      <div class="grid" id="grid-white"></div>
+    </div>
+  </div>
+</main>
+<div class="toast" id="toast"></div>
+
+<script>
+(function(){
+'use strict';
+
+var INITIAL = {
+  color:['_.jpeg','486405f494719617d25ed1f999319faf.jpg','980095937680040976.jpeg',
+         'bc78deccf39886476de24d7c6c321eef.jpg','be65147ce2be9dc44a37349821703c57.jpg',
+         'C_O_P_R_A_6.jpeg','kidsa_legalpagan_on_X.jpeg'],
+  white:['2a18388d7800ffc303248f82989e08d0.png','310b72ee2a68699050769e4cce8c6177.png',
+         '4e7ce5ac5ac9195c67dbf77724509adf.png','762970424f7f19ac1703531778ef024f.png',
+         '927d5bcf5e4f363c91886bc7a07949ea.png','9a9a746171646351cf2c6c47f34a749f.png',
+         'aa474fe996ff95719b0768595299be01.png','c1e18cdd4d32853b63774303a450040b.png',
+         'cd79b1b7519737ff08cacf244c75f706.png','cf390a36c0bf02f296c662a4486b97a0.png',
+         'e166f2e12c8c32fb4e5380192e997290.png']
+};
+
+var STORE_KEY = 'launcher.imgmgr.v2';
+var THRESH_KEY = 'launcher.imgmgr.thresh2';
+
+function loadState(){
+  try{ var r=JSON.parse(localStorage.getItem(STORE_KEY)); if(r&&r.color&&r.white)return r; }catch(e){}
+  return {color:INITIAL.color.slice(),white:INITIAL.white.slice()};
+}
+function loadThresh(){
+  // { name: { luma: 0-255, sat: 0-128 } }
+  try{ var r=JSON.parse(localStorage.getItem(THRESH_KEY)); if(r)return r; }catch(e){}
+  return {};
+}
+function save(){
+  try{
+    localStorage.setItem(STORE_KEY,JSON.stringify(state));
+    localStorage.setItem(THRESH_KEY,JSON.stringify(thresholds));
+    localStorage.setItem('launcher.imgmgr.manifest',JSON.stringify({
+      color:state.color.map(function(n){return 'images/color/'+n;}),
+      white:state.white.map(function(n){return 'images/white/'+n;})
+    }));
+  }catch(e){}
+}
+
+var state = loadState();
+var thresholds = loadThresh(); // { filename: 0-255 }
+var dragging = null;
+var toastTimer = null;
+
+// pixel cache: original ImageData per white filename (loaded once from the PNG)
+var pixelCache = {};
+
+function getThresh(name){
+  var t = thresholds[name];
+  if(t && typeof t === 'object') return t;
+  return { luma: 240, sat: 20 };
+}
+
+function showToast(msg){
+  var t=document.getElementById('toast');
+  t.textContent=msg; t.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer=setTimeout(function(){t.classList.remove('show');},1800);
+}
+
+function moveImage(name,from,to){
+  var idx=state[from].indexOf(name); if(idx<0)return;
+  dragging=null; // reset before re-render so no stale drag state lingers
+  state[from].splice(idx,1); state[to].unshift(name);
+  save(); render();
+  showToast('moved to '+to+'.');
+}
+
+/* ── canvas rendering ──
+   Removes pixels where perceived luma >= lumaThresh AND saturation <= satTol.
+   Luma: BT.601 weighted (perceptual). Saturation: max-min of RGB channels.
+   This catches white, near-white, AND neutral grays without pulling saturated colors. */
+function drawCanvas(canvas, imageData, params){
+  var ctx = canvas.getContext('2d');
+  var w = imageData.width, h = imageData.height;
+  // only resize when needed — avoids flicker during rapid slider input
+  if(canvas.width !== w) canvas.width = w;
+  if(canvas.height !== h) canvas.height = h;
+  var src = imageData.data;
+  var out = ctx.createImageData(w, h);
+  var d = out.data;
+  var lumaT = params.luma;
+  var satT  = params.sat;
+  for(var i=0;i<src.length;i+=4){
+    var r=src[i],g=src[i+1],b=src[i+2];
+    var luma = 0.299*r + 0.587*g + 0.114*b;
+    var sat = Math.max(r,g,b) - Math.min(r,g,b);
+    d[i]=r; d[i+1]=g; d[i+2]=b;
+    d[i+3] = (luma >= lumaT && sat <= satT) ? 0 : 255;
+  }
+  ctx.putImageData(out,0,0);
+}
+
+// pending draw requests while image is loading: name -> latest {canvas, params}
+var pendingDraw = {};
+// tracks names currently being loaded so we don't fire duplicate Image() loads
+var loadingSet = {};
+
+function loadAndDrawWhite(name, canvas, params){
+  if(pixelCache[name]){
+    drawCanvas(canvas, pixelCache[name], params);
+    return;
+  }
+  // always update to latest params so onload uses current slider values
+  pendingDraw[name] = { canvas: canvas, params: params };
+
+  // only start one Image() load per name
+  if(loadingSet[name]) return;
+  loadingSet[name] = true;
+
+  var img = new Image();
+  img.crossOrigin = 'anonymous';
+
+  img.onload = function(){
+    var tmp = document.createElement('canvas');
+    tmp.width = img.naturalWidth; tmp.height = img.naturalHeight;
+    var ctx2 = tmp.getContext('2d');
+    ctx2.drawImage(img, 0, 0);
+    try {
+      var id = ctx2.getImageData(0, 0, tmp.width, tmp.height);
+      // restore alpha to 255 so our luma/sat logic works on raw RGB
+      for(var i=3; i<id.data.length; i+=4) id.data[i] = 255;
+      pixelCache[name] = id;
+      var req = pendingDraw[name];
+      if(req) drawCanvas(req.canvas, id, req.params);
+      delete pendingDraw[name]; delete loadingSet[name];
+    } catch(e) {
+      // tainted canvas (CORS) — degrade to plain img tag
+      var c = pendingDraw[name] && pendingDraw[name].canvas;
+      if(c){ c.style.display='none'; var fb=document.createElement('img'); fb.src='images/white/'+name; fb.className='card-thumb'; c.parentNode.insertBefore(fb,c); }
+      delete pendingDraw[name]; delete loadingSet[name];
+    }
+  };
+
+  img.onerror = function(){
+    // original jpg not found — load the PNG (alpha baked, still useful for preview)
+    var fallbackImg = new Image();
+    fallbackImg.crossOrigin = 'anonymous';
+    fallbackImg.onload = function(){
+      var tmp = document.createElement('canvas');
+      tmp.width = fallbackImg.naturalWidth; tmp.height = fallbackImg.naturalHeight;
+      var ctx3 = tmp.getContext('2d');
+      ctx3.drawImage(fallbackImg, 0, 0);
+      try {
+        var id = ctx3.getImageData(0, 0, tmp.width, tmp.height);
+        for(var i=3; i<id.data.length; i+=4) id.data[i] = 255;
+        pixelCache[name] = id;
+        var req = pendingDraw[name];
+        if(req) drawCanvas(req.canvas, id, req.params);
+      } catch(e) {}
+      delete pendingDraw[name]; delete loadingSet[name];
+    };
+    fallbackImg.onerror = function(){ delete pendingDraw[name]; delete loadingSet[name]; };
+    fallbackImg.src = 'images/white/' + name;
+  };
+
+  // prefer original jpg (pre-alpha, cleaner source); png filename is already stored
+  var jpgName = name.replace(/\.png$/, '.jpg');
+  img.src = 'images/white/' + jpgName;
+}
+
+/* ── card builders ── */
+function makeColorCard(name){
+  var card=document.createElement('div'); card.className='card';
+  card.draggable=true; card.dataset.name=name; card.dataset.cat='color';
+
+  var img=document.createElement('img'); img.className='card-thumb';
+  img.src='images/color/'+name; img.alt=name; img.loading='lazy';
+  card.appendChild(img);
+
+  var ov=document.createElement('div'); ov.className='card-overlay';
+  var nm=document.createElement('div'); nm.className='card-name'; nm.textContent=name;
+  var btn=document.createElement('button'); btn.className='move-btn'; btn.textContent='→ white';
+  btn.addEventListener('click',function(e){e.stopPropagation();moveImage(name,'color','white');});
+  ov.appendChild(nm); ov.appendChild(btn); card.appendChild(ov);
+
+  attachDrag(card,name,'color');
+  return card;
+}
+
+function makeSliderRow(labelText, min, max, initVal, onChange, onDone){
+  var row=document.createElement('div'); row.className='slider-row';
+  var lbl=document.createElement('span'); lbl.className='slabel'; lbl.textContent=labelText;
+  var sl=document.createElement('input'); sl.type='range'; sl.className='thresh-slider';
+  sl.min=min; sl.max=max; sl.value=initVal;
+  var val=document.createElement('span'); val.className='thresh-val'; val.textContent=initVal;
+  row.appendChild(lbl); row.appendChild(sl); row.appendChild(val);
+  sl.addEventListener('input',function(){ val.textContent=sl.value; onChange(parseInt(sl.value,10)); });
+  sl.addEventListener('change',function(){ onDone(); });
+  sl.addEventListener('mousedown',function(e){e.stopPropagation();});
+  sl.addEventListener('touchstart',function(e){e.stopPropagation();},{passive:true});
+  return row;
+}
+
+function makeWhiteCard(name){
+  var card=document.createElement('div'); card.className='card';
+  card.draggable=true; card.dataset.name=name; card.dataset.cat='white';
+
+  var canvas=document.createElement('canvas'); canvas.className='card-thumb';
+  card.appendChild(canvas);
+
+  var ov=document.createElement('div'); ov.className='card-overlay';
+  var nm=document.createElement('div'); nm.className='card-name'; nm.textContent=name;
+
+  var p = getThresh(name); // { luma, sat }
+  var cur = { luma: p.luma, sat: p.sat };
+
+  function redraw(){ if(pixelCache[name]) drawCanvas(canvas,pixelCache[name],cur); }
+  function persist(){ thresholds[name]={luma:cur.luma,sat:cur.sat}; save(); }
+
+  var sliders=document.createElement('div'); sliders.className='sliders';
+  sliders.appendChild(makeSliderRow('luma',0,255,cur.luma,
+    function(v){cur.luma=v;redraw();}, persist));
+  sliders.appendChild(makeSliderRow('sat',0,128,cur.sat,
+    function(v){cur.sat=v;redraw();}, persist));
+
+  var btn=document.createElement('button'); btn.className='move-btn'; btn.textContent='→ color';
+  btn.addEventListener('click',function(e){e.stopPropagation();moveImage(name,'white','color');});
+
+  ov.appendChild(nm); ov.appendChild(sliders); ov.appendChild(btn);
+  card.appendChild(ov);
+
+  loadAndDrawWhite(name, canvas, cur);
+  attachDrag(card,name,'white');
+  return card;
+}
+
+function attachDrag(card,name,cat){
+  card.addEventListener('dragstart',function(e){
+    dragging={name:name,from:cat};
+    card.classList.add('dragging');
+    e.dataTransfer.effectAllowed='move';
+  });
+  card.addEventListener('dragend',function(){
+    dragging=null; card.classList.remove('dragging');
+    document.querySelectorAll('.drop-zone').forEach(function(z){
+      z.classList.remove('drag-over');
+    });
+  });
+}
+
+function setupZone(zone){
+  zone.addEventListener('dragover',function(e){
+    if(!dragging)return; e.preventDefault();
+    e.dataTransfer.dropEffect='move';
+    if(dragging.from!==zone.dataset.target) zone.classList.add('drag-over');
+  });
+  zone.addEventListener('dragleave',function(e){
+    if(!zone.contains(e.relatedTarget)) zone.classList.remove('drag-over');
+  });
+  zone.addEventListener('drop',function(e){
+    e.preventDefault(); zone.classList.remove('drag-over');
+    if(!dragging)return;
+    var to=zone.dataset.target;
+    if(dragging.from!==to) moveImage(dragging.name,dragging.from,to);
+  });
+}
+
+function render(){
+  var gc=document.getElementById('grid-color');
+  var gw=document.getElementById('grid-white');
+  gc.innerHTML=''; gw.innerHTML='';
+
+  if(state.color.length===0){
+    var e=document.createElement('div');e.className='empty';e.textContent='empty';gc.appendChild(e);
+  } else {
+    state.color.forEach(function(n){gc.appendChild(makeColorCard(n));});
+  }
+
+  if(state.white.length===0){
+    var e2=document.createElement('div');e2.className='empty';e2.textContent='empty';gw.appendChild(e2);
+  } else {
+    state.white.forEach(function(n){gw.appendChild(makeWhiteCard(n));});
+  }
+
+  document.getElementById('badge-color').textContent=state.color.length;
+  document.getElementById('badge-white').textContent=state.white.length;
+  document.getElementById('sub').textContent=(state.color.length+state.white.length)+' images';
+}
+
+setupZone(document.getElementById('zone-color'));
+setupZone(document.getElementById('zone-white'));
+render();
+})();
+</script>
+</body>
+</html>
