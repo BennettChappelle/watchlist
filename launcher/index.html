@@ -189,7 +189,7 @@
 
 :root{
   --bg:#242424;
-  --fs:min(7.2vh,10vw);
+  --fs:calc(min(7.2vh,10vw) * var(--fs-scale,1));
   --ease:cubic-bezier(.22,1,.36,1);
   --txt-hi:rgba(0,0,0,1);
   --txt-mid:rgba(0,0,0,.44);
@@ -270,6 +270,8 @@ body:not(.ready) .list{visibility:hidden}
   transition:background-color .25s ease,color .25s ease,opacity .25s ease;
 }
 .tag:hover{background:var(--tag-hover)}
+.size-btn{border:0;background:transparent;color:inherit;cursor:pointer;font:inherit;font-weight:900;letter-spacing:-.035em;padding:0 .15em;opacity:.5;transition:opacity .2s ease}
+.size-btn:hover{opacity:1}
 .hint{opacity:.55;letter-spacing:.06em}
 .meta input{
   font:inherit;color:var(--txt-hi);background:transparent;border:0;outline:0;
@@ -318,7 +320,7 @@ body:not(.ready) .list{visibility:hidden}
 
   /* ---------- state + storage ---------- */
   function freshState() {
-    var s = { urls: {}, on: {}, watchlist: 'https://bennettchappelle.github.io/watchlist/', colorWeight: 50 };
+    var s = { urls: {}, on: {}, watchlist: 'https://bennettchappelle.github.io/watchlist/', colorWeight: 50, textSize: 1 };
     SERVICES.forEach(function (v) { s.urls[v.id] = v.url; s.on[v.id] = true; });
     return s;
   }
@@ -343,12 +345,15 @@ body:not(.ready) .list{visibility:hidden}
         });
             if (raw.watchlist) { var w = normalize(raw.watchlist); if (w) s.watchlist = w; }
             if (typeof raw.colorWeight === 'number') s.colorWeight = Math.max(0, Math.min(100, raw.colorWeight));
+            if (typeof raw.textSize === 'number') s.textSize = Math.max(0.5, Math.min(2, raw.textSize));
       }
     } catch (e) {}
     return s;
   }
   function save() { try { localStorage.setItem(STORE_KEY, JSON.stringify(state)); } catch (e) {} }
   var state = load();
+  function applyTextSize() { document.documentElement.style.setProperty('--fs-scale', state.textSize); }
+  applyTextSize();
 
   /* ---------- audio ---------- */
   var ctx = null, dry = null, filt = null, unlocked = false;
@@ -415,6 +420,7 @@ body:not(.ready) .list{visibility:hidden}
     r.push({ kind: 'watchlist', id: 'watchlist', label: 'watchlist' });
     if (settings) {
       r.push({ kind: 'imgmgr', id: 'imgmgr', label: 'images' });
+      r.push({ kind: 'textsize', id: 'textsize', label: 'text size' });
       r.push({ kind: 'reset', id: 'reset', label: 'reset' });
       r.push({ kind: 'back', id: 'back', label: 'back' });
     } else {
@@ -469,6 +475,30 @@ body:not(.ready) .list{visibility:hidden}
       if (view === 'settings' && (r.kind === 'svc' || r.kind === 'watchlist')) {
         meta = el('span', 'meta');
         inner.appendChild(meta);
+      }
+      if (view === 'settings' && r.kind === 'textsize') {
+        // replace label text with the two buttons
+        label.textContent = '';
+        var btnMinus = document.createElement('button');
+        btnMinus.className = 'size-btn'; btnMinus.textContent = '−';
+        var btnPlus = document.createElement('button');
+        btnPlus.className = 'size-btn'; btnPlus.textContent = '+';
+        label.appendChild(btnMinus);
+        label.appendChild(btnPlus);
+        (function bindSize() {
+          function step(dir) {
+            var v = Math.round((state.textSize + dir * 0.1) * 10) / 10;
+            state.textSize = Math.max(0.5, Math.min(2, v));
+            applyTextSize();
+            save();
+          }
+          btnMinus.addEventListener('click', function(e) { e.stopPropagation(); step(-1); });
+          btnPlus.addEventListener('click', function(e) { e.stopPropagation(); step(1); });
+          btnMinus.addEventListener('pointerdown', function(e) { e.stopPropagation(); });
+          btnPlus.addEventListener('pointerdown', function(e) { e.stopPropagation(); });
+          btnMinus.addEventListener('pointermove', function(e) { e.stopPropagation(); });
+          btnPlus.addEventListener('pointermove', function(e) { e.stopPropagation(); });
+        })();
       }
       li.appendChild(inner);
       li.addEventListener('pointermove', function () {
@@ -564,6 +594,7 @@ body:not(.ready) .list{visibility:hidden}
     if (r.kind === 'svc' && viaSpace) return toggle(i);
     if (r.kind === 'svc' || r.kind === 'watchlist') return startEdit(i);
     if (r.kind === 'imgmgr') return go('image-manager.html');
+    if (r.kind === 'textsize') return;
     if (r.kind === 'reset') return doReset(i);
     if (r.kind === 'back') return show('main', 'settings');
   }
@@ -592,6 +623,7 @@ body:not(.ready) .list{visibility:hidden}
     }
     armed = false;
     state = freshState();
+    applyTextSize();
     save();
     setLabel(i, 'done');
     rowEls.forEach(function (_, k) { updateMeta(k); });
