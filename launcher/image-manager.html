@@ -28,15 +28,31 @@ html,body{min-height:100%;background:var(--bg);color:var(--txt-hi);
 
 header{
   padding:4vh 5vw 3vh;
-  display:flex;align-items:baseline;gap:2ch;
+  display:flex;align-items:center;gap:2ch;flex-wrap:wrap;
   border-bottom:1px solid var(--border);
   position:sticky;top:0;background:var(--bg);z-index:10;
 }
+.weight-row{
+  display:flex;align-items:center;gap:8px;margin-left:auto;margin-right:1ch;
+  font-family:inherit;font-weight:500;font-size:11px;letter-spacing:.06em;
+}
+.weight-label{color:var(--txt-lo);white-space:nowrap}
+.weight-slider{
+  -webkit-appearance:none;appearance:none;
+  width:90px;height:2px;border-radius:2px;
+  background:rgba(255,255,255,.2);outline:none;cursor:pointer;
+}
+.weight-slider::-webkit-slider-thumb{
+  -webkit-appearance:none;appearance:none;
+  width:12px;height:12px;border-radius:50%;
+  background:#fff;cursor:pointer;
+  box-shadow:0 0 0 2px rgba(0,0,0,.5);
+}
+.weight-pct{color:rgba(255,255,255,.45);min-width:3ch;text-align:right}
 header h1{font-weight:900;font-size:clamp(18px,2.4vw,32px);letter-spacing:-.035em}
 header h1 span{color:var(--txt-lo)}
 .sub{font-weight:500;font-size:12px;color:var(--txt-lo);letter-spacing:.04em}
 .back-btn{
-  margin-left:auto;
   font-family:inherit;font-weight:900;font-size:11px;letter-spacing:.07em;text-transform:uppercase;
   border:1px solid rgba(255,255,255,.18);border-radius:99px;
   background:transparent;color:rgba(255,255,255,.45);
@@ -182,6 +198,14 @@ canvas.card-thumb{display:block;width:100%;aspect-ratio:1}
 <header>
   <h1>image manager<span>.</span></h1>
   <span class="sub" id="sub">0 images</span>
+  <div class="weight-row" id="weight-row">
+    <span class="weight-label">color</span>
+    <input type="range" class="weight-slider" id="wt-color" min="0" max="100" value="50">
+    <span class="weight-pct" id="wt-color-pct">50%</span>
+    <span class="weight-label" style="margin-left:4px">white</span>
+    <input type="range" class="weight-slider" id="wt-white" min="0" max="100" value="50">
+    <span class="weight-pct" id="wt-white-pct">50%</span>
+  </div>
   <a href="index.html" class="back-btn">← back</a>
 </header>
 <main>
@@ -207,6 +231,31 @@ canvas.card-thumb{display:block;width:100%;aspect-ratio:1}
 <script>
 (function(){
 'use strict';
+
+/* ── category weight sliders ── */
+(function(){
+  var LAUNCHER_KEY = 'launcher.v1';
+  function getLauncherState(){ try{ return JSON.parse(localStorage.getItem(LAUNCHER_KEY)||'null'); }catch(e){ return null; } }
+  function getColorWeight(){ var s=getLauncherState(); return (s&&typeof s.colorWeight==='number') ? Math.max(0,Math.min(100,s.colorWeight)) : 50; }
+  function setColorWeight(v){
+    var s=getLauncherState()||{};
+    s.colorWeight=Math.max(0,Math.min(100,v));
+    try{ localStorage.setItem(LAUNCHER_KEY,JSON.stringify(s)); }catch(e){}
+  }
+  var sc=document.getElementById('wt-color');
+  var sw=document.getElementById('wt-white');
+  var pc=document.getElementById('wt-color-pct');
+  var pw=document.getElementById('wt-white-pct');
+  function sync(v){
+    v=Math.max(0,Math.min(100,v));
+    sc.value=v; sw.value=100-v;
+    pc.textContent=v+'%'; pw.textContent=(100-v)+'%';
+    setColorWeight(v);
+  }
+  sync(getColorWeight());
+  sc.addEventListener('input',function(){ sync(+sc.value); });
+  sw.addEventListener('input',function(){ sync(100-+sw.value); });
+})();
 
 var INITIAL = {
   color:['_.jpeg','486405f494719617d25ed1f999319faf.jpg','980095937680040976.jpeg',
